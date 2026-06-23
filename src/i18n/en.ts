@@ -1,12 +1,12 @@
 import type { Translations } from "./types";
 
 export const en: Translations = {
-  appTitle: "Deep Research",
-  appSubtitle: "AI Expert Research Assistant",
+  appTitle: "Agnes AI Research",
+  appSubtitle: "Powered by Agnes 2.0 Flash",
 
   welcomeTitle: "What would you like to research?",
   welcomeSubtitle:
-    "Ask a question and a team of expert researchers will search, analyze, and summarize the answer for you.",
+    "Ask a question and Agnes AI will search, analyze, and summarize the answer for you.",
   presetQuestions: [
     "What's the latest news in the tech world?",
     "What are the most popular programming languages?",

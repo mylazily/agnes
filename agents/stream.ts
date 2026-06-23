@@ -1,5 +1,5 @@
 /**
- * Deep Research Agent — EdgeOne Makers handler.
+ * Agnes AI Research Agent — EdgeOne Makers handler.
  *
  * Architecture: Lead Researcher delegates sub-questions to Expert Researcher
  * subagents (with web_search), then synthesizes a final answer.
@@ -18,9 +18,9 @@ type Model = Awaited<ReturnType<typeof initChatModel>>;
 type Agent = ReturnType<typeof createDeepAgent>;
 
 interface Env {
-  AI_GATEWAY_API_KEY: string;
-  AI_GATEWAY_BASE_URL: string;
-  AI_GATEWAY_MODEL: string;
+  AGNES_API_KEY: string;
+  AGNES_BASE_URL: string;
+  AGNES_MODEL: string;
 }
 
 import { createLogger } from './_logger';
@@ -33,27 +33,27 @@ let model: Model | null = null;
 let agent: Agent | null = null;
 
 function getEnv(contextEnv: Record<string, string | undefined> | undefined): Env {
-  const source = contextEnv ?? {};
-  const apiKey = source.AI_GATEWAY_API_KEY?.trim() || "";
-  const baseUrl = source.AI_GATEWAY_BASE_URL?.trim() || "";
+  const source = contextEnv ?? process.env ?? {};
+  const apiKey = source.AGNES_API_KEY?.trim() || "";
+  const baseUrl = source.AGNES_BASE_URL?.trim() || "";
   if (!apiKey || !baseUrl) {
-    throw new Error("Missing AI_GATEWAY_API_KEY or AI_GATEWAY_BASE_URL");
+    throw new Error("Missing AGNES_API_KEY or AGNES_BASE_URL");
   }
   return {
-    AI_GATEWAY_API_KEY: apiKey,
-    AI_GATEWAY_BASE_URL: baseUrl,
-    AI_GATEWAY_MODEL: source.AI_GATEWAY_MODEL?.trim() || "@makers/deepseek-v4-flash",
+    AGNES_API_KEY: apiKey,
+    AGNES_BASE_URL: baseUrl,
+    AGNES_MODEL: source.AGNES_MODEL?.trim() || "agnes-2.0-flash",
   };
 }
 
 async function getModel(env: Env): Promise<Model> {
   if (!model) {
-    logger.log('Initializing model...');
-    model = await initChatModel(env.AI_GATEWAY_MODEL, {
+    logger.log('Initializing Agnes AI model...');
+    model = await initChatModel(env.AGNES_MODEL, {
       modelProvider: 'openai',
-      apiKey: env.AI_GATEWAY_API_KEY,
+      apiKey: env.AGNES_API_KEY,
       configuration: {
-        baseURL: env.AI_GATEWAY_BASE_URL,
+        baseURL: env.AGNES_BASE_URL,
       },
       temperature: 0,
       timeout: 300_000,
@@ -74,7 +74,7 @@ function getAgent(modelInstance: Model, checkpointer: any, store: any, contextTo
       description:
         'An expert researcher that answers a specific sub-question using web search.',
       systemPrompt:
-        `You are an expert researcher. Today is ${today}.\n` +
+        `You are an expert researcher powered by Agnes 2.0 Flash. Today is ${today}.\n` +
         `CRITICAL: You MUST respond in the EXACT same language as your task description. If the task is in Chinese, your ENTIRE output must be in Chinese. If in English, respond in English.\n\n` +
         `Workflow:\n` +
         `1. Call web_search 3-5 times with different queries to gather information from multiple angles.\n` +
@@ -99,7 +99,7 @@ function getAgent(modelInstance: Model, checkpointer: any, store: any, contextTo
     agent = createDeepAgent({
       model: modelInstance,
       systemPrompt:
-        `You are a lead researcher. Today is ${today}.\n` +
+        `You are a lead researcher powered by Agnes 2.0 Flash. Today is ${today}.\n` +
         `CRITICAL: You MUST use the EXACT same language as the user. If the user writes in Chinese, ALL your output (plan text AND task descriptions) MUST be in Chinese. If in English, use English.\n\n` +
         `Process:\n` +
         `1. On your FIRST response, you MUST call the task tool to delegate 2-3 sub-questions. You may optionally include a brief plan sentence before the tool calls, but tool calls are MANDATORY in the first response.\n` +

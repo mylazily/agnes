@@ -1,11 +1,11 @@
 import type { Translations } from "./types";
 
 export const zh: Translations = {
-  appTitle: "Deep Research",
-  appSubtitle: "AI 专家研究助手",
+  appTitle: "Agnes AI 研究助手",
+  appSubtitle: "由 Agnes 2.0 Flash 驱动",
 
   welcomeTitle: "你想研究什么？",
-  welcomeSubtitle: "提出一个问题，专家研究团队将为你搜索、分析并汇总答案。",
+  welcomeSubtitle: "提出一个问题，Agnes AI 将为你搜索、分析并汇总答案。",
   presetQuestions: [
     "最近科技圈有什么新闻？",
     "世界上最受欢迎的编程语言有哪些？",
