@@ -71,11 +71,244 @@ export function MessageFlow({ items, isStreaming, phase }: MessageFlowProps) {
                 </div>
               );
 
-            case "ai_message":
-              if (item.message.content === "__STOPPED__") {
+            case "ai_message": {
+              const msg = item.message;
+
+              // -- Image generation message --
+              if (msg.multimodalType === "image") {
                 return (
                   <div
-                    key={item.message.id}
+                    key={msg.id}
+                    style={{
+                      display: "flex",
+                      justifyContent: "flex-start",
+                      animation: "fadeIn 0.2s ease",
+                    }}
+                  >
+                    <div style={{ maxWidth: "90%" }}>
+                      {msg.generationStatus === "generating" && (
+                        <div
+                          style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: 12,
+                            padding: 20,
+                            background: "var(--dbx-bg-surface)",
+                            border: "1px solid var(--dbx-line-7)",
+                            borderRadius: "var(--radius-2xl)",
+                          }}
+                        >
+                          <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: "var(--dbx-text-tertiary)" }}>
+                            <svg width="16" height="16" style={{ animation: "spin 1s linear infinite" }} fill="none" viewBox="0 0 24 24">
+                              <circle style={{ opacity: 0.25 }} cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
+                              <path style={{ opacity: 0.75 }} fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                            </svg>
+                            {t.imageGenerating}
+                          </div>
+                          {/* Placeholder skeleton */}
+                          <div
+                            style={{
+                              width: "100%",
+                              aspectRatio: "1/1",
+                              maxWidth: 400,
+                              borderRadius: "var(--radius-xl)",
+                              background: "var(--dbx-fill-trans-10)",
+                              animation: "pulse 2s ease-in-out infinite",
+                            }}
+                          />
+                        </div>
+                      )}
+
+                      {msg.generationStatus === "ready" && msg.imageUrl && (
+                        <div
+                          style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: 12,
+                            padding: 20,
+                            background: "var(--dbx-bg-surface)",
+                            border: "1px solid var(--dbx-line-7)",
+                            borderRadius: "var(--radius-2xl)",
+                          }}
+                        >
+                          <img
+                            src={msg.imageUrl}
+                            alt="generated"
+                            style={{ width: "100%", maxWidth: 400, borderRadius: "var(--radius-xl)", objectFit: "contain" }}
+                          />
+                          <a
+                            href={msg.imageUrl}
+                            download
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              gap: 6,
+                              cursor: "pointer",
+                              padding: "8px 16px",
+                              fontSize: 12,
+                              fontWeight: 600,
+                              borderRadius: "var(--radius-xl)",
+                              background: "var(--dbx-text-primary)",
+                              color: "var(--dbx-bg-surface)",
+                              textDecoration: "none",
+                              transition: "opacity 0.15s ease",
+                              width: "fit-content",
+                            }}
+                          >
+                            <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                            </svg>
+                            {t.downloadButton}
+                          </a>
+                        </div>
+                      )}
+
+                      {msg.generationStatus === "error" && (
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 10,
+                            borderRadius: "var(--radius-lg)",
+                            border: "1px solid rgba(255,59,48,0.15)",
+                            background: "rgba(255,59,48,0.06)",
+                            padding: "10px 16px",
+                            fontSize: 13,
+                            color: "var(--dbx-function-danger)",
+                          }}
+                        >
+                          <svg width="16" height="16" style={{ flexShrink: 0 }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                          </svg>
+                          {msg.generationError || t.generationError}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              }
+
+              // -- Video generation message --
+              if (msg.multimodalType === "video") {
+                return (
+                  <div
+                    key={msg.id}
+                    style={{
+                      display: "flex",
+                      justifyContent: "flex-start",
+                      animation: "fadeIn 0.2s ease",
+                    }}
+                  >
+                    <div style={{ maxWidth: "90%" }}>
+                      {(msg.generationStatus === "generating" || msg.generationStatus === "polling") && (
+                        <div
+                          style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: 12,
+                            padding: 20,
+                            background: "var(--dbx-bg-surface)",
+                            border: "1px solid var(--dbx-line-7)",
+                            borderRadius: "var(--radius-2xl)",
+                          }}
+                        >
+                          <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: "var(--dbx-text-tertiary)" }}>
+                            <svg width="16" height="16" style={{ animation: "spin 1s linear infinite" }} fill="none" viewBox="0 0 24 24">
+                              <circle style={{ opacity: 0.25 }} cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
+                              <path style={{ opacity: 0.75 }} fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                            </svg>
+                            {msg.generationStatus === "generating" ? t.videoGenerating : t.videoPollingChat}
+                          </div>
+                          {/* Placeholder skeleton */}
+                          <div
+                            style={{
+                              width: "100%",
+                              aspectRatio: "16/9",
+                              maxWidth: 480,
+                              borderRadius: "var(--radius-xl)",
+                              background: "var(--dbx-fill-trans-10)",
+                              animation: "pulse 2s ease-in-out infinite",
+                            }}
+                          />
+                        </div>
+                      )}
+
+                      {msg.generationStatus === "ready" && msg.videoUrl && (
+                        <div
+                          style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: 12,
+                            padding: 20,
+                            background: "var(--dbx-bg-surface)",
+                            border: "1px solid var(--dbx-line-7)",
+                            borderRadius: "var(--radius-2xl)",
+                          }}
+                        >
+                          <video
+                            src={msg.videoUrl}
+                            controls
+                            style={{ width: "100%", maxWidth: 480, borderRadius: "var(--radius-xl)" }}
+                          />
+                          <a
+                            href={msg.videoUrl}
+                            download
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              gap: 6,
+                              cursor: "pointer",
+                              padding: "8px 16px",
+                              fontSize: 12,
+                              fontWeight: 600,
+                              borderRadius: "var(--radius-xl)",
+                              background: "var(--dbx-text-primary)",
+                              color: "var(--dbx-bg-surface)",
+                              textDecoration: "none",
+                              transition: "opacity 0.15s ease",
+                              width: "fit-content",
+                            }}
+                          >
+                            <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                            </svg>
+                            {t.downloadButton}
+                          </a>
+                        </div>
+                      )}
+
+                      {msg.generationStatus === "error" && (
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 10,
+                            borderRadius: "var(--radius-lg)",
+                            border: "1px solid rgba(255,59,48,0.15)",
+                            background: "rgba(255,59,48,0.06)",
+                            padding: "10px 16px",
+                            fontSize: 13,
+                            color: "var(--dbx-function-danger)",
+                          }}
+                        >
+                          <svg width="16" height="16" style={{ flexShrink: 0 }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                          </svg>
+                          {msg.generationError || t.generationError}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              }
+
+              // -- Normal text message --
+              if (msg.content === "__STOPPED__") {
+                return (
+                  <div
+                    key={msg.id}
                     style={{
                       display: "flex",
                       alignItems: "center",
@@ -97,7 +330,7 @@ export function MessageFlow({ items, isStreaming, phase }: MessageFlowProps) {
               }
               return (
                 <div
-                  key={item.message.id}
+                  key={msg.id}
                   style={{
                     display: "flex",
                     justifyContent: "flex-start",
@@ -107,12 +340,12 @@ export function MessageFlow({ items, isStreaming, phase }: MessageFlowProps) {
                   <div style={{ maxWidth: "90%" }}>
                     {/* Content - no bubble, plain text with markdown */}
                     <div style={{ color: "var(--bot-msg-color)" }}>
-                      {item.message.content ? (
+                      {msg.content ? (
                         <>
-                          <Markdown content={item.message.content} />
+                          <Markdown content={msg.content} />
                           {isStreaming &&
                             idx === items.length - 1 &&
-                            !item.message.hasSubAgents && (
+                            !msg.hasSubAgents && (
                               <span
                                 style={{
                                   display: "inline-block",
@@ -133,6 +366,7 @@ export function MessageFlow({ items, isStreaming, phase }: MessageFlowProps) {
                   </div>
                 </div>
               );
+            }
 
             case "subagent_group":
               return (

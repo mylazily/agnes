@@ -62,4 +62,19 @@ export interface Translations {
   noHistory: string;
   sendMessage: string;
   attachFile: string;
+
+  // Multimodal input placeholders
+  imageGenPlaceholder: string;
+  videoGenPlaceholder: string;
+
+  // Tool button labels
+  toolImage: string;
+  toolVideo: string;
+
+  // Generation status
+  imageGenerating: string;
+  videoGenerating: string;
+  videoPollingChat: string;
+  videoReadyChat: string;
+  generationError: string;
 }

@@ -66,4 +66,16 @@ export const en: Translations = {
   noHistory: "No conversations yet",
   sendMessage: "Send a message...",
   attachFile: "Attach file",
+
+  imageGenPlaceholder: "Describe the image you want to generate...",
+  videoGenPlaceholder: "Describe the video you want to generate...",
+
+  toolImage: "Image",
+  toolVideo: "Video",
+
+  imageGenerating: "Generating image...",
+  videoGenerating: "Generating video...",
+  videoPollingChat: "Generating video, please wait...",
+  videoReadyChat: "Video is ready",
+  generationError: "Generation failed",
 };

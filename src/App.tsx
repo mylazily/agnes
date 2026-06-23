@@ -1,43 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { ChatPage } from "./components/ChatPage";
-import { MultimodalPage } from "./components/MultimodalPage";
 import { useLanguage } from "./hooks/useLanguage";
 
-type Route = "chat" | "image" | "video";
-
-function getRouteFromPath(): Route {
-  const path = window.location.pathname;
-  if (path === "/image") return "image";
-  if (path === "/video") return "video";
-  return "chat";
-}
-
 export default function App() {
-  const [route, setRoute] = useState<Route>(getRouteFromPath);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { t, locale, toggleLocale } = useLanguage();
-
-  useEffect(() => {
-    const onPop = () => setRoute(getRouteFromPath());
-    window.addEventListener("popstate", onPop);
-    return () => window.removeEventListener("popstate", onPop);
-  }, []);
-
-  useEffect(() => {
-    const path = route === "chat" ? "/" : `/${route}`;
-    if (window.location.pathname !== path) {
-      window.history.pushState({}, "", path);
-    }
-  }, [route]);
-
-  // Close sidebar on route change (mobile)
-  useEffect(() => {
-    setSidebarOpen(false);
-  }, [route]);
-
-  const handleRouteChange = (r: Route) => {
-    setRoute(r);
-  };
+  const { locale, toggleLocale } = useLanguage();
 
   return (
     <div style={{ display: "flex", height: "100vh", width: "100vw", overflow: "hidden" }}>
@@ -55,20 +22,21 @@ export default function App() {
           <button
             className="sidebar-new-chat-btn"
             onClick={() => {
-              handleRouteChange("chat");
+              // Navigate to root
+              window.history.pushState({}, "", "/");
             }}
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M12 5v14M5 12h14" />
             </svg>
-            {t.newChat}
+            {locale === "zh" ? "新对话" : "New Chat"}
           </button>
         </div>
 
         <div className="sidebar-history">
-          <div className="sidebar-section-label">{t.chatHistory}</div>
+          <div className="sidebar-section-label">{locale === "zh" ? "对话历史" : "Chat History"}</div>
           <div style={{ padding: "8px 12px", color: "var(--dbx-text-quaternary)", fontSize: 12 }}>
-            {t.noHistory}
+            {locale === "zh" ? "暂无对话" : "No conversations yet"}
           </div>
         </div>
 
@@ -103,24 +71,12 @@ export default function App() {
         </div>
       </aside>
 
-      {/* Main content */}
+      {/* Main content - always ChatPage */}
       <main style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, background: "var(--dbx-bg-body)" }}>
-        {route === "chat" ? (
-          <ChatPage
-            currentMode={route}
-            onChangeMode={handleRouteChange}
-            onToggleSidebar={() => setSidebarOpen((v) => !v)}
-            sidebarOpen={sidebarOpen}
-          />
-        ) : (
-          <MultimodalPage
-            defaultTab={route === "video" ? "video" : "image"}
-            currentMode={route}
-            onChangeMode={handleRouteChange}
-            onToggleSidebar={() => setSidebarOpen((v) => !v)}
-            sidebarOpen={sidebarOpen}
-          />
-        )}
+        <ChatPage
+          onToggleSidebar={() => setSidebarOpen((v) => !v)}
+          sidebarOpen={sidebarOpen}
+        />
       </main>
     </div>
   );

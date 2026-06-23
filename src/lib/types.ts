@@ -28,6 +28,8 @@ export interface StreamEvent {
 
 // -- Chat message --
 
+export type MultimodalMode = "text" | "image" | "video";
+
 export interface ChatMessage {
   id: string;
   role: "user" | "assistant";
@@ -36,6 +38,16 @@ export interface ChatMessage {
   hasSubAgents?: boolean;
   /** Creation order index for timeline rendering */
   orderIdx?: number;
+  /** Multimodal content type */
+  multimodalType?: "text" | "image" | "video";
+  /** Image URL for image generation results */
+  imageUrl?: string;
+  /** Video URL for video generation results */
+  videoUrl?: string;
+  /** Generation status for multimodal messages */
+  generationStatus?: "generating" | "polling" | "ready" | "error";
+  /** Error message for failed generation */
+  generationError?: string;
 }
 
 // -- SubAgent task card --

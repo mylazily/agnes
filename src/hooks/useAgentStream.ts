@@ -891,5 +891,6 @@ export function useAgentStream() {
     loadConversation,
     getStoredConversations,
     removeConversationFromStorage,
+    setMessages,
   };
 }

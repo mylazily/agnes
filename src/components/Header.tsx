@@ -5,8 +5,6 @@ interface HeaderProps {
   phase: ResearchPhase;
   hasMessages: boolean;
   onNewChat: () => void;
-  currentMode?: "chat" | "image" | "video";
-  onChangeMode?: (mode: "chat" | "image" | "video") => void;
   onToggleSidebar?: () => void;
   sidebarOpen?: boolean;
 }
@@ -15,8 +13,6 @@ export function Header({
   phase,
   hasMessages,
   onNewChat,
-  currentMode = "chat",
-  onChangeMode,
   onToggleSidebar,
 }: HeaderProps) {
   const { t } = useLanguage();
@@ -82,42 +78,6 @@ export function Header({
           {t.appTitle}
         </h1>
       </div>
-
-      {/* Mode tabs - doubao style */}
-      {onChangeMode && (
-        <div style={{ display: "flex", alignItems: "center", gap: 2, background: "var(--dbx-fill-trans-10)", borderRadius: "var(--radius-xl)", padding: 3 }}>
-          {(
-            [
-              { key: "chat" as const, label: t.tabChat },
-              { key: "image" as const, label: t.tabImage },
-              { key: "video" as const, label: t.tabVideo },
-            ] as const
-          ).map((item) => {
-            const active = currentMode === item.key;
-            return (
-              <button
-                key={item.key}
-                onClick={() => onChangeMode(item.key)}
-                style={{
-                  cursor: "pointer",
-                  padding: "6px 14px",
-                  fontSize: 13,
-                  fontWeight: active ? 600 : 400,
-                  color: active ? "var(--dbx-text-primary)" : "var(--dbx-text-tertiary)",
-                  background: active ? "var(--dbx-bg-surface)" : "transparent",
-                  borderRadius: "calc(var(--radius-xl) - 2px)",
-                  border: "none",
-                  transition: "all var(--transition-fast)",
-                  boxShadow: active ? "var(--shadow-xs)" : "none",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {item.label}
-              </button>
-            );
-          })}
-        </div>
-      )}
 
       {/* New chat button */}
       {hasMessages && (

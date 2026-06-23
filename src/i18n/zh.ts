@@ -66,4 +66,16 @@ export const zh: Translations = {
   noHistory: "暂无对话",
   sendMessage: "发消息...",
   attachFile: "添加附件",
+
+  imageGenPlaceholder: "描述你想生成的图像...",
+  videoGenPlaceholder: "描述你想生成的视频...",
+
+  toolImage: "图像",
+  toolVideo: "视频",
+
+  imageGenerating: "正在生成图像...",
+  videoGenerating: "正在生成视频...",
+  videoPollingChat: "视频生成中，请稍候...",
+  videoReadyChat: "视频已生成",
+  generationError: "生成失败",
 };
