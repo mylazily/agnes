@@ -115,7 +115,11 @@ html, body, #root {
   color: var(--dbx-text-primary);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
-  overflow: hidden;
+}
+
+/* 只在非移动端或特定情况下隐藏溢出 */
+html {
+  overflow-y: auto;
 }
 
 /* 隐藏滚动条但保持滚动功能 */
