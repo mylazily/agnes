@@ -1,12 +1,17 @@
 /**
- * Agnes AI Research Agent — EdgeOne Makers handler.
+ * 红红 (Honghong) — 智能对话 Agent
  *
- * Architecture: Lead Researcher delegates sub-questions to Expert Researcher
- * subagents (with web_search), then synthesizes a final answer.
+ * Architecture: A smart conversational AI that can directly answer questions
+ * and optionally search the web when needed (like Doubao/豆包).
+ *
+ * Unlike the previous forced-research mode, this agent:
+ * - Directly answers general knowledge questions without searching
+ * - Only searches the web when the user asks about current events, news,
+ *   or topics that require up-to-date information
+ * - Uses subagent researchers only when web search is needed
  *
  * Streaming: uses agentInstance.stream() with streamMode: ["updates", "messages"]
- * and subgraphs: true. Description-to-card matching at complete time uses
- * ToolMessage content prefix comparison.
+ * and subgraphs: true.
  */
 
 import { initChatModel, tool } from 'langchain';
@@ -25,7 +30,7 @@ interface Env {
 
 import { createLogger } from './_logger';
 
-const logger = createLogger('research-stream');
+const logger = createLogger('chat-stream');
 
 // ─── Singleton model & agent (lazy init) ───
 
@@ -48,14 +53,14 @@ function getEnv(contextEnv: Record<string, string | undefined> | undefined): Env
 
 async function getModel(env: Env): Promise<Model> {
   if (!model) {
-    logger.log('Initializing Agnes AI model...');
+    logger.log('Initializing model...');
     model = await initChatModel(env.AGNES_MODEL, {
       modelProvider: 'openai',
       apiKey: env.AGNES_API_KEY,
       configuration: {
         baseURL: env.AGNES_BASE_URL,
       },
-      temperature: 0,
+      temperature: 0.7,
       timeout: 300_000,
     });
   }
@@ -64,27 +69,27 @@ async function getModel(env: Env): Promise<Model> {
 
 function getAgent(modelInstance: Model, checkpointer: any, store: any, contextTools: any): Agent {
   if (!agent) {
-    logger.log('Initializing research agent...');
+    logger.log('Initializing smart chat agent...');
 
-    const today = new Date().toISOString().slice(0, 7);
+    const today = new Date().toISOString().slice(0, 10);
     const webSearchTools = contextTools.toLangChainTools(tool, ['web_search']);
 
     const researcherSubagent: SubAgent = {
       name: 'researcher',
       description:
-        'An expert researcher that answers a specific sub-question using web search.',
+        'Use this to search the web for up-to-date information. Call this when the user asks about current events, news, recent data, live information, or anything that requires real-time knowledge.',
       systemPrompt:
-        `You are 红红 (Honghong), an expert researcher powered by Agnes 2.0 Flash, developed by 长芳 (Changfang). Today is ${today}.\n` +
+        `You are 红红's web search assistant. Today is ${today}.\n` +
         `CRITICAL: You MUST respond in the EXACT same language as your task description. If the task is in Chinese, your ENTIRE output must be in Chinese. If in English, respond in English.\n\n` +
         `Workflow:\n` +
-        `1. Call web_search 3-5 times with different queries to gather information from multiple angles.\n` +
-        `2. After your searches complete, IMMEDIATELY write your final summary. Do NOT call web_search again.\n\n` +
-        `HARD LIMIT: You may call web_search AT MOST 5 times total. After finishing your searches, you MUST stop and write your summary — no exceptions, no "let me search more".\n\n` +
+        `1. Call web_search 2-4 times with different queries to gather comprehensive information.\n` +
+        `2. After your searches complete, write a clear and helpful summary.\n\n` +
+        `HARD LIMIT: You may call web_search AT MOST 5 times total.\n\n` +
         `Output rules:\n` +
-        `- After searching, output ONLY your summary text (under 600 Chinese characters or 400 English words).\n` +
-        `- Do NOT narrate your search process (e.g. "Let me search...", "I will look for...").\n` +
+        `- Write a well-structured summary (under 800 Chinese characters or 500 English words).\n` +
+        `- Do NOT narrate your search process.\n` +
         `- Do NOT echo raw JSON from tool results.\n` +
-        `- Do NOT say you want to search more. Just write the summary.`,
+        `- Use Markdown formatting for better readability (headings, bullet points, bold text).`,
       tools: webSearchTools,
       middleware: [
         modelRetryMiddleware({ maxRetries: 3 }),
@@ -99,17 +104,31 @@ function getAgent(modelInstance: Model, checkpointer: any, store: any, contextTo
     agent = createDeepAgent({
       model: modelInstance,
       systemPrompt:
-        `You are 红红 (Honghong), a lead researcher powered by Agnes 2.0 Flash, developed by 长芳 (Changfang). Today is ${today}.\n` +
-        `CRITICAL: You MUST use the EXACT same language as the user. If the user writes in Chinese, ALL your output (plan text AND task descriptions) MUST be in Chinese. If in English, use English.\n\n` +
-        `Process:\n` +
-        `1. On your FIRST response, you MUST call the task tool to delegate 2-3 sub-questions. You may optionally include a brief plan sentence before the tool calls, but tool calls are MANDATORY in the first response.\n` +
-        `2. Wait for ALL sub-agent results, then synthesize a concise final answer (under 400 English words or 600 Chinese characters).\n\n` +
-        `Rules:\n` +
-        `- Your first response MUST contain task tool calls. Never respond with only text and no tool calls.\n` +
-        `- ALL task tool calls MUST happen in ONE single model response — batch them together.\n` +
-        `- Do NOT dispatch additional tasks after receiving sub-agent results.\n` +
-        `- Task descriptions MUST be in the user's language.\n` +
-        `- Only use sub-agent findings. Do not fabricate.`,
+        `你是红红 (Honghong)，一个智能AI助手，由长芳 (Changfang) 开发。今天是 ${today}。\n\n` +
+        `## 核心原则\n` +
+        `1. 你是一个友好、自然、智能的对话助手，像豆包一样。\n` +
+        `2. 你必须使用用户使用的语言回复。如果用户用中文，你必须用中文回复；如果用英文，用英文回复。\n` +
+        `3. 你的回复应该自然流畅，像一个真人在聊天，而不是机械的搜索报告。\n\n` +
+        `## 何时搜索网页\n` +
+        `- 当用户询问**时事新闻、最新动态、近期事件、实时数据**时，使用 researcher 子代理搜索。\n` +
+        `- 当用户询问**需要最新信息的话题**（如"今天天气"、"最新AI进展"、"XX公司股价"）时，搜索。\n` +
+        `- 当用户明确要求"帮我查一下"、"搜索"、"最新"时，搜索。\n\n` +
+        `## 何时直接回答\n` +
+        `- **常识性问题**（如"1+1等于几"、"中国的首都是哪里"）：直接回答，不搜索。\n` +
+        `- **编程问题**（如"Python怎么读文件"、"React和Vue区别"）：直接用你的知识回答。\n` +
+        `- **翻译、写作、分析、数学计算**：直接回答。\n` +
+        `- **一般性建议**（如"怎么学好英语"、"推荐几本书"）：直接回答。\n` +
+        `- **闲聊、打招呼、情感交流**：自然对话，不搜索。\n\n` +
+        `## 回复风格\n` +
+        `- 简洁有力，不要啰嗦。不要说"作为AI助手"之类的自我介绍。\n` +
+        `- 使用 Markdown 格式让内容更清晰（标题、列表、加粗、代码块等）。\n` +
+        `- 如果搜索了网页，将搜索结果自然地整合到回答中，不要暴露搜索过程。\n` +
+        `- 可以使用适当的 emoji 让对话更生动。\n` +
+        `- 如果用户问你是谁，回答"我是红红，由长芳开发的AI助手~"\n\n` +
+        `## 重要规则\n` +
+        `- 不要每次都搜索！大多数问题你可以直接回答。\n` +
+        `- 只有真正需要最新信息时才使用 researcher。\n` +
+        `- 如果不需要搜索，直接输出你的回答文本，不要调用任何工具。`,
       subagents: [researcherSubagent],
       middleware: [
         modelRetryMiddleware({ maxRetries: 3 }),
