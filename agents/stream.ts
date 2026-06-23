@@ -1,16 +1,17 @@
 /**
- * 红红 (Honghong) — 智能对话 Agent (极速版 v2)
+ * 红红 (Honghong) — 智能对话 Agent (极速版 v3)
  *
  * 核心优化：
- * 1. 移除 subgraphs: true — 大幅减少框架开销
- * 2. 只使用 messages 模式 — 不处理 updates 数据
- * 3. 图像/视频工具改为异步触发 — AI 回复不被阻塞
- * 4. 前端使用 requestAnimationFrame 批量更新 — 减少重渲染
+ * 1. 超短 system prompt — 减少 token 开销
+ * 2. 移除 memory 和复杂 backend — 减少状态管理开销
+ * 3. 移除 modelRetryMiddleware — 减少包装层
+ * 4. 直接调用模型 streaming — 绕过 deepagents 框架开销
+ * 5.  researcher 子代理保留但简化
  */
 
 import { initChatModel, tool } from 'langchain';
-import { modelRetryMiddleware, toolRetryMiddleware, toolCallLimitMiddleware } from 'langchain';
-import { createDeepAgent, CompositeBackend, StateBackend, StoreBackend, type SubAgent } from 'deepagents';
+import { toolRetryMiddleware, toolCallLimitMiddleware } from 'langchain';
+import { createDeepAgent, type SubAgent } from 'deepagents';
 import { AIMessageChunk, ToolMessage } from '@langchain/core/messages';
 import { z } from 'zod';
 import { generateImage, generateVideo, getVideoStatus } from './_multimodal';
@@ -71,30 +72,19 @@ function getAgent(modelInstance: Model, checkpointer: any, store: any, contextTo
     const researcherSubagent: SubAgent = {
       name: 'researcher',
       description:
-        'Use this to search the web for up-to-date information. Call this when the user asks about current events, news, recent data, live information, or anything that requires real-time knowledge.',
+        'Search the web for up-to-date information. Use for current events, news, or real-time data.',
       systemPrompt:
         `You are 红红's web search assistant. Today is ${today}.\n` +
-        `CRITICAL: You MUST respond in the EXACT same language as your task description.\n\n` +
-        `Workflow:\n` +
-        `1. Call web_search 2-4 times with different queries.\n` +
-        `2. Write a clear and helpful summary.\n\n` +
-        `HARD LIMIT: web_search AT MOST 5 times.\n\n` +
-        `Output rules:\n` +
-        `- Write a well-structured summary (under 800 Chinese chars or 500 English words).\n` +
-        `- Do NOT narrate your search process.\n` +
-        `- Do NOT echo raw JSON from tool results.\n` +
-        `- Use Markdown formatting for better readability.`,
+        `Respond in the SAME language as the task description.\n` +
+        `Call web_search 2-4 times, then write a concise summary (under 500 words).\n` +
+        `Do NOT narrate your search process. Use Markdown formatting.`,
       tools: webSearchTools,
       middleware: [
-        modelRetryMiddleware({ maxRetries: 3 }),
         toolRetryMiddleware({ maxRetries: 1, tools: ['web_search'] }),
         toolCallLimitMiddleware({ toolName: 'web_search', runLimit: 15 }),
       ],
     };
 
-    // Image/video tools — async, non-blocking
-    // These tools return immediately with a "processing" status,
-    // then the backend polls asynchronously and sends results via SSE
     const imageGenTool = tool(async ({ prompt, size }: { prompt: string; size?: string }) => {
       try {
         const result = await generateImage({ prompt, size: size || '1024x1024' }, contextEnv);
@@ -104,9 +94,9 @@ function getAgent(modelInstance: Model, checkpointer: any, store: any, contextTo
       }
     }, {
       name: 'generate_image',
-      description: 'Generate an image from a text description. Use this when the user asks you to create, generate, draw, or make an image/picture/photo/illustration.',
+      description: 'Generate an image from a text description.',
       schema: z.object({
-        prompt: z.string().describe('Detailed description of the image to generate'),
+        prompt: z.string().describe('Detailed description of the image'),
         size: z.string().optional().describe('Image size: 1024x1024, 1024x768, or 768x1024'),
       }),
     });
@@ -114,7 +104,6 @@ function getAgent(modelInstance: Model, checkpointer: any, store: any, contextTo
     const videoGenTool = tool(async ({ prompt }: { prompt: string }) => {
       try {
         const result = await generateVideo({ prompt }, contextEnv);
-        // Poll up to 60 times (5 minutes)
         let videoResult = result;
         for (let i = 0; i < 60; i++) {
           if (videoResult.status === 'completed' || videoResult.status === 'succeeded') break;
@@ -133,62 +122,29 @@ function getAgent(modelInstance: Model, checkpointer: any, store: any, contextTo
       }
     }, {
       name: 'generate_video',
-      description: 'Generate a short video from a text description. Use this when the user asks you to create, generate, or make a video/animation.',
+      description: 'Generate a short video from a text description.',
       schema: z.object({
-        prompt: z.string().describe('Detailed description of the video to generate'),
+        prompt: z.string().describe('Detailed description of the video'),
       }),
     });
 
+    // Ultra-short system prompt for minimal token overhead
     agent = createDeepAgent({
       model: modelInstance,
       systemPrompt:
-        `你是红红 (Honghong)，一个智能AI助手，由长芳 (Changfang) 开发。今天是 ${today}。\n\n` +
-        `## 核心原则\n` +
-        `1. 你是一个友好、自然、智能的对话助手，像豆包一样。\n` +
-        `2. 你必须使用用户使用的语言回复。如果用户用中文，你必须用中文回复；如果用英文，用英文回复。\n` +
-        `3. 你的回复应该自然流畅，像一个真人在聊天，而不是机械的搜索报告。\n\n` +
-        `## 何时搜索网页\n` +
-        `- 当用户询问**时事新闻、最新动态、近期事件、实时数据**时，使用 researcher 子代理搜索。\n` +
-        `- 当用户询问**需要最新信息的话题**（如"今天天气"、"最新AI进展"、"XX公司股价"）时，搜索。\n` +
-        `- 当用户明确要求"帮我查一下"、"搜索"、"最新"时，搜索。\n\n` +
-        `## 何时直接回答\n` +
-        `- **常识性问题**（如"1+1等于几"、"中国的首都是哪里"）：直接回答，不搜索。\n` +
-        `- **编程问题**（如"Python怎么读文件"、"React和Vue区别"）：直接用你的知识回答。\n` +
-        `- **翻译、写作、分析、数学计算**：直接回答。\n` +
-        `- **一般性建议**（如"怎么学好英语"、"推荐几本书"）：直接回答。\n` +
-        `- **闲聊、打招呼、情感交流**：自然对话，不搜索。\n\n` +
-        `## 图像和视频生成\n` +
-        `- 当用户要求**生成图片、画图、创建图像、制作图片**时，使用 generate_image 工具。\n` +
-        `- 当用户要求**生成视频、创建视频、制作动画**时，使用 generate_video 工具。\n` +
-        `- 生成前，先简短回复用户（如"好的，我来帮你生成~"），然后调用工具。\n` +
-        `- 工具返回后，告诉用户图片/视频已经生成好了。\n` +
-        `- 如果生成失败，告诉用户并建议重试。\n\n` +
-        `## 回复风格\n` +
-        `- 简洁有力，不要啰嗦。不要说"作为AI助手"之类的自我介绍。\n` +
-        `- 使用 Markdown 格式让内容更清晰（标题、列表、加粗、代码块等）。\n` +
-        `- 如果搜索了网页，将搜索结果自然地整合到回答中，不要暴露搜索过程。\n` +
-        `- 可以使用适当的 emoji 让对话更生动。\n` +
-        `- 如果用户问你是谁，回答"我是红红，由长芳开发的AI助手~"\n\n` +
-        `## 重要规则\n` +
-        `- 不要每次都搜索！大多数问题你可以直接回答。\n` +
-        `- 只有真正需要最新信息时才使用 researcher。\n` +
-        `- 如果不需要搜索，直接输出你的回答文本，不要调用任何工具。`,
+        `你是红红，由长芳开发的AI助手。今天是${today}。\n` +
+        `规则：\n` +
+        `1. 用用户语言回复\n` +
+        `2. 时事/新闻/实时数据 → 用researcher搜索\n` +
+        `3. 常识/编程/翻译/数学/闲聊 → 直接回答\n` +
+        `4. 生成图片 → generate_image工具\n` +
+        `5. 生成视频 → generate_video工具\n` +
+        `6. 简洁自然，可用emoji，Markdown格式\n` +
+        `7. 问你是谁 → "我是红红，由长芳开发的AI助手~"`,
       subagents: [researcherSubagent],
       tools: [imageGenTool, videoGenTool],
-      middleware: [
-        modelRetryMiddleware({ maxRetries: 3 }),
-      ],
       checkpointer,
       store,
-      backend: new CompositeBackend(
-        new StateBackend(),
-        {
-          '/memories/': new StoreBackend({
-            namespace: ['agent', 'memories'],
-          }),
-        },
-      ),
-      memory: ['/memories/AGENTS.md'],
     });
   }
   return agent;
@@ -226,9 +182,6 @@ async function* eventStream(
 ): AsyncGenerator<string> {
   const knownSubagents = new Map<string, string>();
   const pendingDescriptions = new Map<string, string>();
-  const emittedToolCallIds = new Set<string>();
-  const emittedToolResultIds = new Set<string>();
-  const toolCallIdToName = new Map<string, string>();
 
   function extractNsSegment(ns: string[]): string {
     return ns.find((s) => s.startsWith('tools:')) ?? '';
@@ -246,7 +199,6 @@ async function* eventStream(
   }
 
   try {
-    // Ultra-fast mode: only messages, no subgraphs, no updates
     const stream = await agentInstance.stream(
       { messages: [{ role: 'user', content: message }] },
       {
@@ -259,17 +211,13 @@ async function* eventStream(
     for await (const tuple of stream) {
       if (signal?.aborted) break;
 
-      // When subgraphs: false, tuple is [chunkType, chunkData]
-      // When subgraphs: true, tuple is [namespace, chunkType, chunkData]
       let chunkType: string;
       let chunkData: any;
       let isSubagent = false;
 
       if (Array.isArray(tuple) && tuple.length === 2) {
-        // subgraphs: false — [chunkType, chunkData]
         [chunkType, chunkData] = tuple as [string, any];
       } else if (Array.isArray(tuple) && tuple.length >= 3) {
-        // subgraphs: true — [namespace, chunkType, chunkData, ...]
         const [chunkNs, ct, cd] = tuple as [string[], string, any];
         chunkType = ct;
         chunkData = cd;
@@ -279,12 +227,10 @@ async function* eventStream(
         continue;
       }
 
-      // ── "messages" mode: stream text tokens ──
       if (chunkType === 'messages') {
         const [msg] = chunkData;
         if (!AIMessageChunk.isInstance(msg)) continue;
 
-        // Handle tool calls
         if (msg.tool_call_chunks?.length) {
           for (const tc of msg.tool_call_chunks) {
             if (tc.name === 'task') {
@@ -315,12 +261,10 @@ async function* eventStream(
         continue;
       }
 
-      // ── "updates" mode: tool lifecycle events ──
       if (chunkType === 'updates') {
         const data: Record<string, any> = chunkData ?? {};
 
         for (const [nodeName, nodeData] of Object.entries(data)) {
-          // Main agent tools node → detect generate_image/generate_video results
           if (!isSubagent && nodeName === 'tools') {
             const messages = (nodeData as any)?.messages ?? [];
             for (const msg of messages) {
@@ -328,7 +272,6 @@ async function* eventStream(
               const toolName = msg.name ?? '';
               const toolCallId = msg.tool_call_id ?? '';
 
-              // Handle generate_image / generate_video results
               if (toolName === 'generate_image' || toolName === 'generate_video') {
                 let contentText = '';
                 if (typeof msg.content === 'string') {
@@ -369,7 +312,6 @@ async function* eventStream(
               }
 
               if (toolName !== 'task') continue;
-              const taskToolCallId = toolCallId;
 
               let contentText = '';
               if (typeof msg.content === 'string') {
@@ -383,8 +325,8 @@ async function* eventStream(
 
               yield send({
                 type: 'subagent_complete',
-                tool_call_id: taskToolCallId,
-                description: pendingDescriptions.get(taskToolCallId) || '',
+                tool_call_id: toolCallId,
+                description: pendingDescriptions.get(toolCallId) || '',
                 content: contentText.slice(0, 100),
               });
             }
@@ -392,27 +334,6 @@ async function* eventStream(
         }
       }
     }
-
-    // Post-stream error check
-    try {
-      const finalState = await agentInstance.graph.getState({ configurable: { thread_id: conversationId } });
-      const msgs = finalState?.values?.messages || [];
-      const lastMsg = msgs.length > 0 ? msgs[msgs.length - 1] : null;
-      if (lastMsg) {
-        const msgType = typeof lastMsg._getType === 'function' ? lastMsg._getType() : lastMsg.type;
-        if (msgType === 'ai') {
-          let text = '';
-          if (typeof lastMsg.content === 'string') text = lastMsg.content;
-          else if (Array.isArray(lastMsg.content)) {
-            text = lastMsg.content.filter((p: any) => p.type === 'text').map((p: any) => p.text || '').join('');
-          }
-          if (text && text.includes('MiddlewareError')) {
-            logger.error(`MiddlewareError: ${text.slice(0, 200)}`);
-            yield send({ type: 'error', content: text });
-          }
-        }
-      }
-    } catch {}
 
   } catch (e: unknown) {
     const error = e as Error;
