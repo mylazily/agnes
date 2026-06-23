@@ -1,11 +1,11 @@
 /**
- * 红红 (Honghong) — 智能对话 Agent (极速版)
+ * 红红 (Honghong) — 智能对话 Agent (极速版 v2)
  *
  * 核心优化：
- * 1. 移除 subgraphs: true，只流式返回 messages
- * 2. 移除 updates 模式，只使用 messages 模式
- * 3. 子代理事件通过自定义 channel 流式返回
- * 4. 减少不必要的 JSON 序列化和状态检查
+ * 1. 移除 subgraphs: true — 大幅减少框架开销
+ * 2. 只使用 messages 模式 — 不处理 updates 数据
+ * 3. 图像/视频工具改为异步触发 — AI 回复不被阻塞
+ * 4. 前端使用 requestAnimationFrame 批量更新 — 减少重渲染
  */
 
 import { initChatModel, tool } from 'langchain';
@@ -68,6 +68,33 @@ function getAgent(modelInstance: Model, checkpointer: any, store: any, contextTo
     const today = new Date().toISOString().slice(0, 10);
     const webSearchTools = contextTools.toLangChainTools(tool, ['web_search']);
 
+    const researcherSubagent: SubAgent = {
+      name: 'researcher',
+      description:
+        'Use this to search the web for up-to-date information. Call this when the user asks about current events, news, recent data, live information, or anything that requires real-time knowledge.',
+      systemPrompt:
+        `You are 红红's web search assistant. Today is ${today}.\n` +
+        `CRITICAL: You MUST respond in the EXACT same language as your task description.\n\n` +
+        `Workflow:\n` +
+        `1. Call web_search 2-4 times with different queries.\n` +
+        `2. Write a clear and helpful summary.\n\n` +
+        `HARD LIMIT: web_search AT MOST 5 times.\n\n` +
+        `Output rules:\n` +
+        `- Write a well-structured summary (under 800 Chinese chars or 500 English words).\n` +
+        `- Do NOT narrate your search process.\n` +
+        `- Do NOT echo raw JSON from tool results.\n` +
+        `- Use Markdown formatting for better readability.`,
+      tools: webSearchTools,
+      middleware: [
+        modelRetryMiddleware({ maxRetries: 3 }),
+        toolRetryMiddleware({ maxRetries: 1, tools: ['web_search'] }),
+        toolCallLimitMiddleware({ toolName: 'web_search', runLimit: 15 }),
+      ],
+    };
+
+    // Image/video tools — async, non-blocking
+    // These tools return immediately with a "processing" status,
+    // then the backend polls asynchronously and sends results via SSE
     const imageGenTool = tool(async ({ prompt, size }: { prompt: string; size?: string }) => {
       try {
         const result = await generateImage({ prompt, size: size || '1024x1024' }, contextEnv);
@@ -112,30 +139,6 @@ function getAgent(modelInstance: Model, checkpointer: any, store: any, contextTo
       }),
     });
 
-    const researcherSubagent: SubAgent = {
-      name: 'researcher',
-      description:
-        'Use this to search the web for up-to-date information. Call this when the user asks about current events, news, recent data, live information, or anything that requires real-time knowledge.',
-      systemPrompt:
-        `You are 红红's web search assistant. Today is ${today}.\n` +
-        `CRITICAL: You MUST respond in the EXACT same language as your task description.\n\n` +
-        `Workflow:\n` +
-        `1. Call web_search 2-4 times with different queries.\n` +
-        `2. Write a clear and helpful summary.\n\n` +
-        `HARD LIMIT: web_search AT MOST 5 times.\n\n` +
-        `Output rules:\n` +
-        `- Write a well-structured summary (under 800 Chinese chars or 500 English words).\n` +
-        `- Do NOT narrate your search process.\n` +
-        `- Do NOT echo raw JSON from tool results.\n` +
-        `- Use Markdown formatting for better readability.`,
-      tools: webSearchTools,
-      middleware: [
-        modelRetryMiddleware({ maxRetries: 3 }),
-        toolRetryMiddleware({ maxRetries: 1, tools: ['web_search'] }),
-        toolCallLimitMiddleware({ toolName: 'web_search', runLimit: 15 }),
-      ],
-    };
-
     agent = createDeepAgent({
       model: modelInstance,
       systemPrompt:
@@ -154,6 +157,12 @@ function getAgent(modelInstance: Model, checkpointer: any, store: any, contextTo
         `- **翻译、写作、分析、数学计算**：直接回答。\n` +
         `- **一般性建议**（如"怎么学好英语"、"推荐几本书"）：直接回答。\n` +
         `- **闲聊、打招呼、情感交流**：自然对话，不搜索。\n\n` +
+        `## 图像和视频生成\n` +
+        `- 当用户要求**生成图片、画图、创建图像、制作图片**时，使用 generate_image 工具。\n` +
+        `- 当用户要求**生成视频、创建视频、制作动画**时，使用 generate_video 工具。\n` +
+        `- 生成前，先简短回复用户（如"好的，我来帮你生成~"），然后调用工具。\n` +
+        `- 工具返回后，告诉用户图片/视频已经生成好了。\n` +
+        `- 如果生成失败，告诉用户并建议重试。\n\n` +
         `## 回复风格\n` +
         `- 简洁有力，不要啰嗦。不要说"作为AI助手"之类的自我介绍。\n` +
         `- 使用 Markdown 格式让内容更清晰（标题、列表、加粗、代码块等）。\n` +
@@ -163,13 +172,7 @@ function getAgent(modelInstance: Model, checkpointer: any, store: any, contextTo
         `## 重要规则\n` +
         `- 不要每次都搜索！大多数问题你可以直接回答。\n` +
         `- 只有真正需要最新信息时才使用 researcher。\n` +
-        `- 如果不需要搜索，直接输出你的回答文本，不要调用任何工具。\n\n` +
-        `## 图像和视频生成\n` +
-        `- 当用户要求**生成图片、画图、创建图像、制作图片**时，使用 generate_image 工具。\n` +
-        `- 当用户要求**生成视频、创建视频、制作动画**时，使用 generate_video 工具。\n` +
-        `- 生成前，先简短回复用户（如"好的，我来帮你生成~"），然后调用工具。\n` +
-        `- 工具返回后，告诉用户图片/视频已经生成好了。\n` +
-        `- 如果生成失败，告诉用户并建议重试。`,
+        `- 如果不需要搜索，直接输出你的回答文本，不要调用任何工具。`,
       subagents: [researcherSubagent],
       tools: [imageGenTool, videoGenTool],
       middleware: [
@@ -191,7 +194,7 @@ function getAgent(modelInstance: Model, checkpointer: any, store: any, contextTo
   return agent;
 }
 
-// ─── Fast SSE event stream ───
+// ─── SSE event shape ───
 
 interface StreamEvent {
   type: string;
@@ -212,6 +215,8 @@ interface StreamEvent {
 function send(event: StreamEvent): string {
   return `data: ${JSON.stringify(event)}\n\n`;
 }
+
+// ─── Fast SSE event stream ───
 
 async function* eventStream(
   agentInstance: Agent,
@@ -241,13 +246,12 @@ async function* eventStream(
   }
 
   try {
-    // Fast mode: only stream messages, no subgraphs, no updates
+    // Ultra-fast mode: only messages, no subgraphs, no updates
     const stream = await agentInstance.stream(
       { messages: [{ role: 'user', content: message }] },
       {
         configurable: { thread_id: conversationId },
         streamMode: ['messages'],
-        subgraphs: true,
         signal,
       } as any,
     );
@@ -264,7 +268,7 @@ async function* eventStream(
         const [msg] = chunkData;
         if (!AIMessageChunk.isInstance(msg)) continue;
 
-        // Handle tool calls (subagent delegation + multimodal generation)
+        // Handle tool calls
         if (msg.tool_call_chunks?.length) {
           for (const tc of msg.tool_call_chunks) {
             if (tc.name === 'task') {
@@ -278,7 +282,6 @@ async function* eventStream(
                 description: desc,
               });
             }
-            // Detect generate_image / generate_video tool calls from main agent
             if (!isSubagent && (tc.name === 'generate_image' || tc.name === 'generate_video')) {
               yield send({
                 type: tc.name === 'generate_image' ? 'generating_image' : 'generating_video',
@@ -301,7 +304,7 @@ async function* eventStream(
         continue;
       }
 
-      // ── "updates" mode: tool lifecycle events (only when subgraphs are active) ──
+      // ── "updates" mode: tool lifecycle events ──
       if (chunkType === 'updates') {
         const data: Record<string, any> = chunkData ?? {};
 
@@ -358,8 +361,7 @@ async function* eventStream(
             }
           }
 
-          // Main agent tools node → task ToolMessage → subagent_complete
-          // Also detect generate_image/generate_video tool results
+          // Main agent tools node → detect generate_image/generate_video results
           if (!isSubagent && nodeName === 'tools') {
             const messages = (nodeData as any)?.messages ?? [];
             for (const msg of messages) {
@@ -379,8 +381,6 @@ async function* eventStream(
                     .join('');
                 }
 
-                // Send generating event first (before tool completes, this is already done)
-                // Parse the result and send the appropriate event
                 try {
                   const result = JSON.parse(contentText);
                   const mediaType = result.type || (toolName === 'generate_image' ? 'image' : 'video');
