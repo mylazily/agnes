@@ -1,17 +1,11 @@
 /**
- * 红红 (Honghong) — 智能对话 Agent
+ * 红红 (Honghong) — 智能对话 Agent (极速版)
  *
- * Architecture: A smart conversational AI that can directly answer questions
- * and optionally search the web when needed (like Doubao/豆包).
- *
- * Unlike the previous forced-research mode, this agent:
- * - Directly answers general knowledge questions without searching
- * - Only searches the web when the user asks about current events, news,
- *   or topics that require up-to-date information
- * - Uses subagent researchers only when web search is needed
- *
- * Streaming: uses agentInstance.stream() with streamMode: ["updates", "messages"]
- * and subgraphs: true.
+ * 核心优化：
+ * 1. 移除 subgraphs: true，只流式返回 messages
+ * 2. 移除 updates 模式，只使用 messages 模式
+ * 3. 子代理事件通过自定义 channel 流式返回
+ * 4. 减少不必要的 JSON 序列化和状态检查
  */
 
 import { initChatModel, tool } from 'langchain';
@@ -31,8 +25,6 @@ interface Env {
 import { createLogger } from './_logger';
 
 const logger = createLogger('chat-stream');
-
-// ─── Singleton model & agent (lazy init) ───
 
 let model: Model | null = null;
 let agent: Agent | null = null;
@@ -80,24 +72,21 @@ function getAgent(modelInstance: Model, checkpointer: any, store: any, contextTo
         'Use this to search the web for up-to-date information. Call this when the user asks about current events, news, recent data, live information, or anything that requires real-time knowledge.',
       systemPrompt:
         `You are 红红's web search assistant. Today is ${today}.\n` +
-        `CRITICAL: You MUST respond in the EXACT same language as your task description. If the task is in Chinese, your ENTIRE output must be in Chinese. If in English, respond in English.\n\n` +
+        `CRITICAL: You MUST respond in the EXACT same language as your task description.\n\n` +
         `Workflow:\n` +
-        `1. Call web_search 2-4 times with different queries to gather comprehensive information.\n` +
-        `2. After your searches complete, write a clear and helpful summary.\n\n` +
-        `HARD LIMIT: You may call web_search AT MOST 5 times total.\n\n` +
+        `1. Call web_search 2-4 times with different queries.\n` +
+        `2. Write a clear and helpful summary.\n\n` +
+        `HARD LIMIT: web_search AT MOST 5 times.\n\n` +
         `Output rules:\n` +
-        `- Write a well-structured summary (under 800 Chinese characters or 500 English words).\n` +
+        `- Write a well-structured summary (under 800 Chinese chars or 500 English words).\n` +
         `- Do NOT narrate your search process.\n` +
         `- Do NOT echo raw JSON from tool results.\n` +
-        `- Use Markdown formatting for better readability (headings, bullet points, bold text).`,
+        `- Use Markdown formatting for better readability.`,
       tools: webSearchTools,
       middleware: [
         modelRetryMiddleware({ maxRetries: 3 }),
         toolRetryMiddleware({ maxRetries: 1, tools: ['web_search'] }),
-        toolCallLimitMiddleware({
-          toolName: 'web_search',
-          runLimit: 15,
-        }),
+        toolCallLimitMiddleware({ toolName: 'web_search', runLimit: 15 }),
       ],
     };
 
@@ -149,11 +138,11 @@ function getAgent(modelInstance: Model, checkpointer: any, store: any, contextTo
   return agent;
 }
 
-// ─── SSE event shape ───
+// ─── Fast SSE event stream ───
 
 interface StreamEvent {
   type: string;
-  source: 'main' | 'subagent';
+  source?: 'main' | 'subagent';
   content?: string;
   name?: string;
   tool_name?: string;
@@ -164,7 +153,9 @@ interface StreamEvent {
   args?: string;
 }
 
-// ─── SSE event stream generator ───
+function send(event: StreamEvent): string {
+  return `data: ${JSON.stringify(event)}\n\n`;
+}
 
 async function* eventStream(
   agentInstance: Agent,
@@ -172,7 +163,7 @@ async function* eventStream(
   conversationId: string,
   signal?: AbortSignal,
 ): AsyncGenerator<string> {
-  const knownSubagents = new Map<string, { saId: string }>();
+  const knownSubagents = new Map<string, string>();
   const pendingDescriptions = new Map<string, string>();
   const emittedToolCallIds = new Set<string>();
   const emittedToolResultIds = new Set<string>();
@@ -186,23 +177,20 @@ async function* eventStream(
     return nsSegment.split(':').pop()?.slice(0, 8) ?? '';
   }
 
-  function ensureSubagent(nsSegment: string): { saId: string } {
+  function ensureSubagent(nsSegment: string): string {
     if (knownSubagents.has(nsSegment)) return knownSubagents.get(nsSegment)!;
     const saId = shortId(nsSegment);
-    knownSubagents.set(nsSegment, { saId });
-    return { saId };
-  }
-
-  function send(event: StreamEvent): string {
-    return `data: ${JSON.stringify(event)}\n\n`;
+    knownSubagents.set(nsSegment, saId);
+    return saId;
   }
 
   try {
+    // Fast mode: only stream messages, no subgraphs, no updates
     const stream = await agentInstance.stream(
       { messages: [{ role: 'user', content: message }] },
       {
         configurable: { thread_id: conversationId },
-        streamMode: ['updates', 'messages'],
+        streamMode: ['messages'],
         subgraphs: true,
         signal,
       } as any,
@@ -215,93 +203,100 @@ async function* eventStream(
       const nsSegment = extractNsSegment(chunkNs);
       const isSubagent = !!nsSegment;
 
-      // ── "updates" mode: lifecycle + tool events ──
+      // ── "messages" mode: stream text tokens ──
+      if (chunkType === 'messages') {
+        const [msg] = chunkData;
+        if (!AIMessageChunk.isInstance(msg)) continue;
+
+        // Handle tool calls (subagent delegation)
+        if (msg.tool_call_chunks?.length) {
+          for (const tc of msg.tool_call_chunks) {
+            if (tc.name === 'task') {
+              const desc = (tc.args?.description ?? '').slice(0, 500);
+              const saType = tc.args?.subagent_type ?? 'researcher';
+              pendingDescriptions.set(tc.id, desc);
+              yield send({
+                type: 'subagent_pending',
+                tool_call_id: tc.id,
+                subagent_type: saType,
+                description: desc,
+              });
+            }
+          }
+          continue;
+        }
+
+        if (!msg.text) continue;
+        const content = msg.text.replace(/\n{3,}/g, '\n\n');
+        if (!content) continue;
+
+        if (isSubagent) {
+          const saId = ensureSubagent(nsSegment);
+          yield send({ type: 'ai', source: 'subagent', content, subagent_id: saId });
+        } else {
+          yield send({ type: 'ai', source: 'main', content });
+        }
+        continue;
+      }
+
+      // ── "updates" mode: tool lifecycle events (only when subgraphs are active) ──
       if (chunkType === 'updates') {
         const data: Record<string, any> = chunkData ?? {};
 
         for (const [nodeName, nodeData] of Object.entries(data)) {
-          // (A) Main agent model_request → task tool_calls
-          if (!isSubagent && nodeName === 'model_request') {
-            const messages = (nodeData as any)?.messages ?? [];
-            for (const msg of messages) {
-              for (const tc of msg?.tool_calls ?? []) {
-                if (tc.name !== 'task') continue;
-                const desc = (tc.args?.description ?? '').slice(0, 500);
-                const saType = tc.args?.subagent_type ?? 'researcher';
-                pendingDescriptions.set(tc.id, desc);
-                yield send({
-                  type: 'subagent_pending',
-                  source: 'main',
-                  tool_call_id: tc.id,
-                  subagent_type: saType,
-                  description: desc,
-                });
-              }
-            }
-          }
-
-          // (B) Subagent namespace events
-          if (isSubagent) {
-            const { saId } = ensureSubagent(nsSegment);
-
-            yield send({
-              type: 'subagent_step',
-              source: 'subagent',
-              subagent_id: saId,
-            });
-
-            // (B1) Subagent model_request → tool_calls
-            if (nodeName === 'model_request') {
-              const stateMessages = (nodeData as any)?.messages ?? [];
-              for (const msg of stateMessages) {
-                for (const tc of (msg as any)?.tool_calls ?? []) {
-                  if (!tc?.name) continue;
-                  const tcRealId: string = tc.id ?? '';
-                  if (tcRealId && emittedToolCallIds.has(tcRealId)) continue;
-                  if (tcRealId) {
-                    emittedToolCallIds.add(tcRealId);
-                    toolCallIdToName.set(tcRealId, tc.name);
-                  }
-
-                  const argsStr = typeof tc.args === 'string'
-                    ? tc.args
-                    : tc.args != null ? JSON.stringify(tc.args) : '';
-
-                  yield send({
-                    type: 'tool_call',
-                    source: 'subagent',
-                    name: tc.name,
-                    subagent_id: saId,
-                    tool_call_id: tcRealId,
-                    ...(argsStr && { args: argsStr }),
-                  });
+          // Subagent model_request → tool_calls
+          if (isSubagent && nodeName === 'model_request') {
+            const stateMessages = (nodeData as any)?.messages ?? [];
+            for (const msg of stateMessages) {
+              for (const tc of (msg as any)?.tool_calls ?? []) {
+                if (!tc?.name) continue;
+                const tcRealId: string = tc.id ?? '';
+                if (tcRealId && emittedToolCallIds.has(tcRealId)) continue;
+                if (tcRealId) {
+                  emittedToolCallIds.add(tcRealId);
+                  toolCallIdToName.set(tcRealId, tc.name);
                 }
-              }
-            }
 
-            // (B2) Subagent tools node → tool completion
-            if (nodeName === 'tools') {
-              const stateMessages = (nodeData as any)?.messages ?? [];
-              for (const msg of stateMessages) {
-                if (!ToolMessage.isInstance(msg) && (msg as any)?.type !== 'tool') continue;
-                const toolTcId: string = (msg as any).tool_call_id ?? '';
-                const resolvedName = msg.name ?? toolCallIdToName.get(toolTcId) ?? '';
-                if (resolvedName === 'task') continue;
-                if (toolTcId && emittedToolResultIds.has(toolTcId)) continue;
-                if (toolTcId) emittedToolResultIds.add(toolTcId);
+                const saId = ensureSubagent(nsSegment);
+                const argsStr = typeof tc.args === 'string'
+                  ? tc.args
+                  : tc.args != null ? JSON.stringify(tc.args) : '';
 
                 yield send({
-                  type: 'tool',
+                  type: 'tool_call',
                   source: 'subagent',
-                  tool_name: resolvedName,
+                  name: tc.name,
                   subagent_id: saId,
-                  tool_call_id: toolTcId,
+                  tool_call_id: tcRealId,
+                  ...(argsStr && { args: argsStr }),
                 });
               }
             }
           }
 
-          // (C) Main agent tools node → task ToolMessage → subagent_complete
+          // Subagent tools node → tool completion
+          if (isSubagent && nodeName === 'tools') {
+            const stateMessages = (nodeData as any)?.messages ?? [];
+            for (const msg of stateMessages) {
+              if (!ToolMessage.isInstance(msg) && (msg as any)?.type !== 'tool') continue;
+              const toolTcId: string = (msg as any).tool_call_id ?? '';
+              const resolvedName = msg.name ?? toolCallIdToName.get(toolTcId) ?? '';
+              if (resolvedName === 'task') continue;
+              if (toolTcId && emittedToolResultIds.has(toolTcId)) continue;
+              if (toolTcId) emittedToolResultIds.add(toolTcId);
+
+              const saId = ensureSubagent(nsSegment);
+              yield send({
+                type: 'tool',
+                source: 'subagent',
+                tool_name: resolvedName,
+                subagent_id: saId,
+                tool_call_id: toolTcId,
+              });
+            }
+          }
+
+          // Main agent tools node → task ToolMessage → subagent_complete
           if (!isSubagent && nodeName === 'tools') {
             const messages = (nodeData as any)?.messages ?? [];
             for (const msg of messages) {
@@ -320,7 +315,6 @@ async function* eventStream(
 
               yield send({
                 type: 'subagent_complete',
-                source: 'main',
                 tool_call_id: taskToolCallId,
                 description: pendingDescriptions.get(taskToolCallId) || '',
                 content: contentText.slice(0, 100),
@@ -328,34 +322,10 @@ async function* eventStream(
             }
           }
         }
-
-        continue;
-      }
-
-      // ── "messages" mode: stream text tokens ──
-      if (chunkType === 'messages') {
-        const [msg] = chunkData;
-        if (!AIMessageChunk.isInstance(msg)) continue;
-        if (!msg.text || msg.tool_call_chunks?.length) continue;
-
-        const content = msg.text.replace(/\n{3,}/g, '\n\n');
-        if (!content) continue;
-
-        if (isSubagent) {
-          const { saId } = ensureSubagent(nsSegment);
-          yield send({
-            type: 'ai',
-            source: 'subagent',
-            content,
-            subagent_id: saId,
-          });
-        } else {
-          yield send({ type: 'ai', source: 'main', content });
-        }
       }
     }
 
-    // ── Post-stream: check for unstreamed errors in final state ──
+    // Post-stream error check
     try {
       const finalState = await agentInstance.graph.getState({ configurable: { thread_id: conversationId } });
       const msgs = finalState?.values?.messages || [];
@@ -369,8 +339,8 @@ async function* eventStream(
             text = lastMsg.content.filter((p: any) => p.type === 'text').map((p: any) => p.text || '').join('');
           }
           if (text && text.includes('MiddlewareError')) {
-            logger.error(`MiddlewareError in final state: ${text.slice(0, 200)}`);
-            yield send({ type: 'error', source: 'main', content: text });
+            logger.error(`MiddlewareError: ${text.slice(0, 200)}`);
+            yield send({ type: 'error', content: text });
           }
         }
       }
@@ -382,7 +352,7 @@ async function* eventStream(
       logger.log('Stream aborted by user');
     } else {
       logger.error('Stream error:', error.message);
-      yield send({ type: 'error', source: 'main', content: `Stream error: ${error.constructor.name}: ${String(error.message).slice(0, 500)}` });
+      yield send({ type: 'error', content: `Stream error: ${error.constructor.name}: ${String(error.message).slice(0, 500)}` });
     }
   }
 
@@ -539,7 +509,7 @@ export async function onRequest(context: any) {
       } catch (e) {
         const error = e as Error;
         if (error.name === 'AbortError' || signal?.aborted) return;
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'error', source: 'main', content: error.message })}\n\n`));
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'error', content: error.message })}\n\n`));
       } finally {
         controller.close();
       }
