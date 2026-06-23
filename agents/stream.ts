@@ -259,9 +259,25 @@ async function* eventStream(
     for await (const tuple of stream) {
       if (signal?.aborted) break;
 
-      const [chunkNs, chunkType, chunkData] = tuple as any as [string[], string, any];
-      const nsSegment = extractNsSegment(chunkNs);
-      const isSubagent = !!nsSegment;
+      // When subgraphs: false, tuple is [chunkType, chunkData]
+      // When subgraphs: true, tuple is [namespace, chunkType, chunkData]
+      let chunkType: string;
+      let chunkData: any;
+      let isSubagent = false;
+
+      if (Array.isArray(tuple) && tuple.length === 2) {
+        // subgraphs: false — [chunkType, chunkData]
+        [chunkType, chunkData] = tuple as [string, any];
+      } else if (Array.isArray(tuple) && tuple.length >= 3) {
+        // subgraphs: true — [namespace, chunkType, chunkData, ...]
+        const [chunkNs, ct, cd] = tuple as [string[], string, any];
+        chunkType = ct;
+        chunkData = cd;
+        const nsSegment = extractNsSegment(chunkNs);
+        isSubagent = !!nsSegment;
+      } else {
+        continue;
+      }
 
       // ── "messages" mode: stream text tokens ──
       if (chunkType === 'messages') {
@@ -295,12 +311,7 @@ async function* eventStream(
         const content = msg.text.replace(/\n{3,}/g, '\n\n');
         if (!content) continue;
 
-        if (isSubagent) {
-          const saId = ensureSubagent(nsSegment);
-          yield send({ type: 'ai', source: 'subagent', content, subagent_id: saId });
-        } else {
-          yield send({ type: 'ai', source: 'main', content });
-        }
+        yield send({ type: 'ai', source: isSubagent ? 'subagent' : 'main', content });
         continue;
       }
 
@@ -309,58 +320,6 @@ async function* eventStream(
         const data: Record<string, any> = chunkData ?? {};
 
         for (const [nodeName, nodeData] of Object.entries(data)) {
-          // Subagent model_request → tool_calls
-          if (isSubagent && nodeName === 'model_request') {
-            const stateMessages = (nodeData as any)?.messages ?? [];
-            for (const msg of stateMessages) {
-              for (const tc of (msg as any)?.tool_calls ?? []) {
-                if (!tc?.name) continue;
-                const tcRealId: string = tc.id ?? '';
-                if (tcRealId && emittedToolCallIds.has(tcRealId)) continue;
-                if (tcRealId) {
-                  emittedToolCallIds.add(tcRealId);
-                  toolCallIdToName.set(tcRealId, tc.name);
-                }
-
-                const saId = ensureSubagent(nsSegment);
-                const argsStr = typeof tc.args === 'string'
-                  ? tc.args
-                  : tc.args != null ? JSON.stringify(tc.args) : '';
-
-                yield send({
-                  type: 'tool_call',
-                  source: 'subagent',
-                  name: tc.name,
-                  subagent_id: saId,
-                  tool_call_id: tcRealId,
-                  ...(argsStr && { args: argsStr }),
-                });
-              }
-            }
-          }
-
-          // Subagent tools node → tool completion
-          if (isSubagent && nodeName === 'tools') {
-            const stateMessages = (nodeData as any)?.messages ?? [];
-            for (const msg of stateMessages) {
-              if (!ToolMessage.isInstance(msg) && (msg as any)?.type !== 'tool') continue;
-              const toolTcId: string = (msg as any).tool_call_id ?? '';
-              const resolvedName = msg.name ?? toolCallIdToName.get(toolTcId) ?? '';
-              if (resolvedName === 'task') continue;
-              if (toolTcId && emittedToolResultIds.has(toolTcId)) continue;
-              if (toolTcId) emittedToolResultIds.add(toolTcId);
-
-              const saId = ensureSubagent(nsSegment);
-              yield send({
-                type: 'tool',
-                source: 'subagent',
-                tool_name: resolvedName,
-                subagent_id: saId,
-                tool_call_id: toolTcId,
-              });
-            }
-          }
-
           // Main agent tools node → detect generate_image/generate_video results
           if (!isSubagent && nodeName === 'tools') {
             const messages = (nodeData as any)?.messages ?? [];
