@@ -8,7 +8,11 @@ export interface StreamEvent {
     | "subagent_pending"
     | "subagent_step"
     | "subagent_complete"
-    | "error";
+    | "error"
+    | "generating_image"
+    | "generating_video"
+    | "image_result"
+    | "video_result";
   source: "main" | "subagent";
   content?: string;
   /** Tool name (used by `tool_call`). */
@@ -24,6 +28,12 @@ export interface StreamEvent {
   subagent_id?: string;
   /** JSON-serialised tool arguments (for `tool_call`). */
   args?: string;
+  /** URL for generated image/video */
+  url?: string;
+  /** Status for generation result */
+  status?: string;
+  /** Error message for generation failure */
+  error?: string;
 }
 
 // -- Chat message --

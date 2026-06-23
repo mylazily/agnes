@@ -12,6 +12,8 @@ import { initChatModel, tool } from 'langchain';
 import { modelRetryMiddleware, toolRetryMiddleware, toolCallLimitMiddleware } from 'langchain';
 import { createDeepAgent, CompositeBackend, StateBackend, StoreBackend, type SubAgent } from 'deepagents';
 import { AIMessageChunk, ToolMessage } from '@langchain/core/messages';
+import { z } from 'zod';
+import { generateImage, generateVideo, getVideoStatus } from './_multimodal';
 
 type Model = Awaited<ReturnType<typeof initChatModel>>;
 type Agent = ReturnType<typeof createDeepAgent>;
@@ -59,12 +61,56 @@ async function getModel(env: Env): Promise<Model> {
   return model;
 }
 
-function getAgent(modelInstance: Model, checkpointer: any, store: any, contextTools: any): Agent {
+function getAgent(modelInstance: Model, checkpointer: any, store: any, contextTools: any, contextEnv: Record<string, string | undefined>): Agent {
   if (!agent) {
     logger.log('Initializing smart chat agent...');
 
     const today = new Date().toISOString().slice(0, 10);
     const webSearchTools = contextTools.toLangChainTools(tool, ['web_search']);
+
+    const imageGenTool = tool(async ({ prompt, size }: { prompt: string; size?: string }) => {
+      try {
+        const result = await generateImage({ prompt, size: size || '1024x1024' }, contextEnv);
+        return JSON.stringify({ success: true, url: result.url, type: 'image' });
+      } catch (e) {
+        return JSON.stringify({ success: false, error: (e as Error).message, type: 'image' });
+      }
+    }, {
+      name: 'generate_image',
+      description: 'Generate an image from a text description. Use this when the user asks you to create, generate, draw, or make an image/picture/photo/illustration.',
+      schema: z.object({
+        prompt: z.string().describe('Detailed description of the image to generate'),
+        size: z.string().optional().describe('Image size: 1024x1024, 1024x768, or 768x1024'),
+      }),
+    });
+
+    const videoGenTool = tool(async ({ prompt }: { prompt: string }) => {
+      try {
+        const result = await generateVideo({ prompt }, contextEnv);
+        // Poll up to 60 times (5 minutes)
+        let videoResult = result;
+        for (let i = 0; i < 60; i++) {
+          if (videoResult.status === 'completed' || videoResult.status === 'succeeded') break;
+          if (videoResult.status === 'failed' || videoResult.status === 'cancelled') break;
+          await new Promise(r => setTimeout(r, 5000));
+          videoResult = await getVideoStatus(videoResult.taskId, contextEnv);
+        }
+        return JSON.stringify({
+          success: videoResult.status === 'completed' || videoResult.status === 'succeeded',
+          url: videoResult.url,
+          type: 'video',
+          status: videoResult.status,
+        });
+      } catch (e) {
+        return JSON.stringify({ success: false, error: (e as Error).message, type: 'video' });
+      }
+    }, {
+      name: 'generate_video',
+      description: 'Generate a short video from a text description. Use this when the user asks you to create, generate, or make a video/animation.',
+      schema: z.object({
+        prompt: z.string().describe('Detailed description of the video to generate'),
+      }),
+    });
 
     const researcherSubagent: SubAgent = {
       name: 'researcher',
@@ -117,8 +163,15 @@ function getAgent(modelInstance: Model, checkpointer: any, store: any, contextTo
         `## 重要规则\n` +
         `- 不要每次都搜索！大多数问题你可以直接回答。\n` +
         `- 只有真正需要最新信息时才使用 researcher。\n` +
-        `- 如果不需要搜索，直接输出你的回答文本，不要调用任何工具。`,
+        `- 如果不需要搜索，直接输出你的回答文本，不要调用任何工具。\n\n` +
+        `## 图像和视频生成\n` +
+        `- 当用户要求**生成图片、画图、创建图像、制作图片**时，使用 generate_image 工具。\n` +
+        `- 当用户要求**生成视频、创建视频、制作动画**时，使用 generate_video 工具。\n` +
+        `- 生成前，先简短回复用户（如"好的，我来帮你生成~"），然后调用工具。\n` +
+        `- 工具返回后，告诉用户图片/视频已经生成好了。\n` +
+        `- 如果生成失败，告诉用户并建议重试。`,
       subagents: [researcherSubagent],
+      tools: [imageGenTool, videoGenTool],
       middleware: [
         modelRetryMiddleware({ maxRetries: 3 }),
       ],
@@ -151,6 +204,9 @@ interface StreamEvent {
   description?: string;
   subagent_id?: string;
   args?: string;
+  url?: string;
+  status?: string;
+  error?: string;
 }
 
 function send(event: StreamEvent): string {
@@ -208,7 +264,7 @@ async function* eventStream(
         const [msg] = chunkData;
         if (!AIMessageChunk.isInstance(msg)) continue;
 
-        // Handle tool calls (subagent delegation)
+        // Handle tool calls (subagent delegation + multimodal generation)
         if (msg.tool_call_chunks?.length) {
           for (const tc of msg.tool_call_chunks) {
             if (tc.name === 'task') {
@@ -220,6 +276,12 @@ async function* eventStream(
                 tool_call_id: tc.id,
                 subagent_type: saType,
                 description: desc,
+              });
+            }
+            // Detect generate_image / generate_video tool calls from main agent
+            if (!isSubagent && (tc.name === 'generate_image' || tc.name === 'generate_video')) {
+              yield send({
+                type: tc.name === 'generate_image' ? 'generating_image' : 'generating_video',
               });
             }
           }
@@ -297,11 +359,58 @@ async function* eventStream(
           }
 
           // Main agent tools node → task ToolMessage → subagent_complete
+          // Also detect generate_image/generate_video tool results
           if (!isSubagent && nodeName === 'tools') {
             const messages = (nodeData as any)?.messages ?? [];
             for (const msg of messages) {
-              if (msg.type !== 'tool' || msg.name !== 'task') continue;
-              const taskToolCallId = msg.tool_call_id ?? '';
+              if (msg.type !== 'tool') continue;
+              const toolName = msg.name ?? '';
+              const toolCallId = msg.tool_call_id ?? '';
+
+              // Handle generate_image / generate_video results
+              if (toolName === 'generate_image' || toolName === 'generate_video') {
+                let contentText = '';
+                if (typeof msg.content === 'string') {
+                  contentText = msg.content;
+                } else if (Array.isArray(msg.content)) {
+                  contentText = msg.content
+                    .filter((block: any) => block.type === 'text')
+                    .map((block: any) => block.text || '')
+                    .join('');
+                }
+
+                // Send generating event first (before tool completes, this is already done)
+                // Parse the result and send the appropriate event
+                try {
+                  const result = JSON.parse(contentText);
+                  const mediaType = result.type || (toolName === 'generate_image' ? 'image' : 'video');
+                  if (result.success) {
+                    yield send({
+                      type: mediaType === 'image' ? 'image_result' : 'video_result',
+                      url: result.url || '',
+                      status: result.status || 'completed',
+                    });
+                  } else {
+                    yield send({
+                      type: mediaType === 'image' ? 'image_result' : 'video_result',
+                      url: '',
+                      status: 'error',
+                      error: result.error || 'Generation failed',
+                    });
+                  }
+                } catch {
+                  yield send({
+                    type: toolName === 'generate_image' ? 'image_result' : 'video_result',
+                    url: '',
+                    status: 'error',
+                    error: 'Failed to parse tool result',
+                  });
+                }
+                continue;
+              }
+
+              if (toolName !== 'task') continue;
+              const taskToolCallId = toolCallId;
 
               let contentText = '';
               if (typeof msg.content === 'string') {
@@ -392,7 +501,7 @@ export async function onRequest(context: any) {
   try {
     const envVars = getEnv(env);
     const modelInstance = await getModel(envVars);
-    agentInstance = getAgent(modelInstance, checkpointer, store, context.tools);
+    agentInstance = getAgent(modelInstance, checkpointer, store, context.tools, env);
   } catch (e) {
     const msg = (e as Error).message;
     logger.error(msg);

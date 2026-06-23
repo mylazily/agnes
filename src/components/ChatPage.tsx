@@ -5,7 +5,7 @@ import { WelcomeScreen } from "./WelcomeScreen";
 import { MessageFlow } from "./MessageFlow";
 import { ChatInput } from "./ChatInput";
 import { useLanguage } from "../hooks/useLanguage";
-import type { MultimodalMode, ChatMessage } from "../lib/types";
+import type { ChatMessage } from "../lib/types";
 
 interface ChatPageProps {
   onToggleSidebar: () => void;
@@ -15,10 +15,6 @@ interface ChatPageProps {
 /** Main chat page -- doubao-style layout with integrated multimodal generation. */
 export function ChatPage({ onToggleSidebar, sidebarOpen }: ChatPageProps) {
   const { t } = useLanguage();
-  const [multimodalMode, setMultimodalMode] = useState<MultimodalMode>("text");
-  const [isGenerating, setIsGenerating] = useState(false);
-  const videoPollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const convIdRef = useRef<string>(crypto.randomUUID());
 
   const {
     messages,
@@ -34,7 +30,6 @@ export function ChatPage({ onToggleSidebar, sidebarOpen }: ChatPageProps) {
     loadConversation,
     getStoredConversations,
     removeConversationFromStorage,
-    setMessages,
   } = useAgentStream();
 
   const hasMessages = messages.length > 0;
@@ -47,15 +42,6 @@ export function ChatPage({ onToggleSidebar, sidebarOpen }: ChatPageProps) {
       return () => clearTimeout(timer);
     }
   }, [loadError, dismissLoadError]);
-
-  // Cleanup video poll timer on unmount
-  useEffect(() => {
-    return () => {
-      if (videoPollTimerRef.current) {
-        clearTimeout(videoPollTimerRef.current);
-      }
-    };
-  }, []);
 
   const loadErrorText = loadError
     ? loadError === "empty"
@@ -70,235 +56,23 @@ export function ChatPage({ onToggleSidebar, sidebarOpen }: ChatPageProps) {
     forceUpdate((n: number) => n + 1);
   };
 
-  // -- Image generation --
-  const generateImage = useCallback(async (prompt: string) => {
-    setIsGenerating(true);
-    const assistantMsgId = `img-${Date.now()}`;
-    const userMsg: ChatMessage = {
-      id: `user-${Date.now()}`,
-      role: "user",
-      content: prompt,
-      multimodalType: "image",
-      orderIdx: Date.now(),
-    };
-    const assistantMsg: ChatMessage = {
-      id: assistantMsgId,
-      role: "assistant",
-      content: "",
-      multimodalType: "image",
-      generationStatus: "generating",
-      orderIdx: Date.now() + 1,
-    };
-
-    setMessages((prev) => [...prev, userMsg, assistantMsg]);
-
-    try {
-      const res = await fetch("/image", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "makers-conversation-id": convIdRef.current,
-        },
-        body: JSON.stringify({ action: "generate", prompt, size: "1024x1024" }),
-      });
-      const data = await res.json();
-      if (!res.ok || data.error) {
-        throw new Error(data.error || "Image generation failed");
-      }
-      const imageUrl = data.url || data.imageUrl || null;
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === assistantMsgId
-            ? { ...m, imageUrl: imageUrl || undefined, generationStatus: "ready" as const }
-            : m
-        )
-      );
-    } catch (e: any) {
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === assistantMsgId
-            ? { ...m, generationStatus: "error" as const, generationError: e.message || "Unknown error" }
-            : m
-        )
-      );
-    } finally {
-      setIsGenerating(false);
-    }
-  }, [setMessages]);
-
-  // -- Video generation --
-  const pollVideoStatus = useCallback((taskId: string, assistantMsgId: string) => {
-    const poll = async () => {
-      try {
-        const res = await fetch("/video", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "makers-conversation-id": convIdRef.current,
-          },
-          body: JSON.stringify({ action: "status", taskId }),
-        });
-        const data = await res.json();
-        if (!res.ok || data.error) {
-          throw new Error(data.error || "Polling failed");
-        }
-
-        if (data.status === "ready" || data.status === "completed" || data.url) {
-          const videoUrl = data.url || data.videoUrl || null;
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === assistantMsgId
-                ? { ...m, videoUrl: videoUrl || undefined, generationStatus: "ready" as const }
-                : m
-            )
-          );
-          setIsGenerating(false);
-          return;
-        }
-
-        if (data.status === "failed" || data.status === "error") {
-          throw new Error(data.message || "Video generation failed");
-        }
-
-        // Still processing
-        videoPollTimerRef.current = setTimeout(() => poll(), 3000);
-      } catch (e: any) {
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === assistantMsgId
-              ? { ...m, generationStatus: "error" as const, generationError: e.message || "Unknown error" }
-              : m
-          )
-        );
-        setIsGenerating(false);
-      }
-    };
-    poll();
-  }, [setMessages]);
-
-  const generateVideo = useCallback(async (prompt: string) => {
-    setIsGenerating(true);
-    const assistantMsgId = `vid-${Date.now()}`;
-    const userMsg: ChatMessage = {
-      id: `user-${Date.now()}`,
-      role: "user",
-      content: prompt,
-      multimodalType: "video",
-      orderIdx: Date.now(),
-    };
-    const assistantMsg: ChatMessage = {
-      id: assistantMsgId,
-      role: "assistant",
-      content: "",
-      multimodalType: "video",
-      generationStatus: "generating",
-      orderIdx: Date.now() + 1,
-    };
-
-    setMessages((prev) => [...prev, userMsg, assistantMsg]);
-
-    try {
-      const res = await fetch("/video", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "makers-conversation-id": convIdRef.current,
-        },
-        body: JSON.stringify({
-          action: "create",
-          prompt,
-          num_frames: 30,
-          frame_rate: 6,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok || data.error) {
-        throw new Error(data.error || "Video creation failed");
-      }
-      const id = data.taskId || data.task_id || data.id;
-      if (!id) {
-        throw new Error("No task ID returned");
-      }
-      // Update to polling status
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === assistantMsgId
-            ? { ...m, generationStatus: "polling" as const }
-            : m
-        )
-      );
-      videoPollTimerRef.current = setTimeout(() => pollVideoStatus(id, assistantMsgId), 3000);
-    } catch (e: any) {
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === assistantMsgId
-            ? { ...m, generationStatus: "error" as const, generationError: e.message || "Unknown error" }
-            : m
-        )
-      );
-      setIsGenerating(false);
-    }
-  }, [setMessages, pollVideoStatus]);
-
-  // -- Unified send handler --
+  // -- Unified send handler: AI auto-detects intent --
   const handleSend = useCallback(async (text: string) => {
-    if (isStreaming || isGenerating) return;
-
-    // Reset to text mode after sending
-    const currentMode = multimodalMode;
-
-    if (currentMode === "image") {
-      await generateImage(text);
-    } else if (currentMode === "video") {
-      await generateVideo(text);
-    } else {
-      sendMessage(text);
-    }
-  }, [isStreaming, isGenerating, multimodalMode, generateImage, generateVideo, sendMessage]);
+    if (isStreaming) return;
+    sendMessage(text);
+  }, [isStreaming, sendMessage]);
 
   // -- Unified stop handler --
   const handleStop = useCallback(() => {
     if (isStreaming) {
       stopStreaming();
     }
-    if (isGenerating) {
-      // Cancel video polling
-      if (videoPollTimerRef.current) {
-        clearTimeout(videoPollTimerRef.current);
-        videoPollTimerRef.current = null;
-      }
-      setIsGenerating(false);
-      // Mark last generating message as error
-      setMessages((prev) => {
-        const updated = [...prev];
-        for (let i = updated.length - 1; i >= 0; i--) {
-          if (
-            updated[i].role === "assistant" &&
-            (updated[i].generationStatus === "generating" || updated[i].generationStatus === "polling")
-          ) {
-            updated[i] = { ...updated[i], generationStatus: "error", generationError: "Cancelled" };
-            break;
-          }
-        }
-        return updated;
-      });
-    }
-  }, [isStreaming, isGenerating, stopStreaming, setMessages]);
+  }, [isStreaming, stopStreaming]);
 
   // -- Reset chat --
   const handleResetChat = useCallback(() => {
     resetChat();
-    setMultimodalMode("text");
-    setIsGenerating(false);
-    if (videoPollTimerRef.current) {
-      clearTimeout(videoPollTimerRef.current);
-      videoPollTimerRef.current = null;
-    }
   }, [resetChat]);
-
-  const handleModeChange = useCallback((newMode: MultimodalMode) => {
-    setMultimodalMode(newMode);
-  }, []);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "var(--dbx-bg-body)" }}>
@@ -375,9 +149,7 @@ export function ChatPage({ onToggleSidebar, sidebarOpen }: ChatPageProps) {
         <ChatInput
           onSend={handleSend}
           onStop={handleStop}
-          isStreaming={isStreaming || isGenerating}
-          mode={multimodalMode}
-          onModeChange={handleModeChange}
+          isStreaming={isStreaming}
         />
       </div>
     </div>

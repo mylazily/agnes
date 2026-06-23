@@ -257,6 +257,9 @@ export function useAgentStream() {
       let lastGroupLinkedToMsgId: string | null = null;
       let hasSeenSubAgents = false;
       const unmappedCardIds: string[] = [];
+      // Track multimodal generation messages
+      let generatingImageMsgId: string | null = null;
+      let generatingVideoMsgId: string | null = null;
 
       // -- Event handlers --
 
@@ -623,6 +626,126 @@ export function useAgentStream() {
                   },
                 ]);
                 break;
+              case "generating_image": {
+                const msgId = `img-${Date.now()}`;
+                generatingImageMsgId = msgId;
+                setMessages((prev) => [
+                  ...prev,
+                  {
+                    id: msgId,
+                    role: "assistant",
+                    content: "",
+                    multimodalType: "image" as const,
+                    generationStatus: "generating" as const,
+                    orderIdx: nextOrder(),
+                  },
+                ]);
+                break;
+              }
+              case "generating_video": {
+                const msgId = `vid-${Date.now()}`;
+                generatingVideoMsgId = msgId;
+                setMessages((prev) => [
+                  ...prev,
+                  {
+                    id: msgId,
+                    role: "assistant",
+                    content: "",
+                    multimodalType: "video" as const,
+                    generationStatus: "generating" as const,
+                    orderIdx: nextOrder(),
+                  },
+                ]);
+                break;
+              }
+              case "image_result": {
+                const imgMsgId = generatingImageMsgId;
+                generatingImageMsgId = null;
+                if (imgMsgId) {
+                  if (event.status === "error") {
+                    setMessages((prev) =>
+                      prev.map((m) =>
+                        m.id === imgMsgId
+                          ? {
+                              ...m,
+                              generationStatus: "error" as const,
+                              generationError: event.error || "Generation failed",
+                            }
+                          : m
+                      )
+                    );
+                  } else if (event.url) {
+                    setMessages((prev) =>
+                      prev.map((m) =>
+                        m.id === imgMsgId
+                          ? {
+                              ...m,
+                              imageUrl: event.url,
+                              generationStatus: "ready" as const,
+                            }
+                          : m
+                      )
+                    );
+                  } else {
+                    setMessages((prev) =>
+                      prev.map((m) =>
+                        m.id === imgMsgId
+                          ? {
+                              ...m,
+                              generationStatus: "error" as const,
+                              generationError: "No image URL returned",
+                            }
+                          : m
+                      )
+                    );
+                  }
+                }
+                break;
+              }
+              case "video_result": {
+                const vidMsgId = generatingVideoMsgId;
+                generatingVideoMsgId = null;
+                if (vidMsgId) {
+                  if (event.status === "error") {
+                    setMessages((prev) =>
+                      prev.map((m) =>
+                        m.id === vidMsgId
+                          ? {
+                              ...m,
+                              generationStatus: "error" as const,
+                              generationError: event.error || "Generation failed",
+                            }
+                          : m
+                      )
+                    );
+                  } else if (event.url) {
+                    setMessages((prev) =>
+                      prev.map((m) =>
+                        m.id === vidMsgId
+                          ? {
+                              ...m,
+                              videoUrl: event.url,
+                              generationStatus: "ready" as const,
+                            }
+                          : m
+                      )
+                    );
+                  } else {
+                    setMessages((prev) =>
+                      prev.map((m) =>
+                        m.id === vidMsgId
+                          ? {
+                              ...m,
+                              generationStatus: "error" as const,
+                              generationError: "No video URL returned",
+                            }
+                          : m
+                      )
+                    );
+                  }
+                }
+                break;
+              }
             }
           }
         }
