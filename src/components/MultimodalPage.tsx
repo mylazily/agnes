@@ -22,6 +22,7 @@ function ImageTab() {
   const [loading, setLoading] = useState(false);
   const [resultUrl, setResultUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const convIdRef = useRef<string>(crypto.randomUUID());
 
   const handleGenerate = async () => {
     if (!prompt.trim() || loading) return;
@@ -31,7 +32,10 @@ function ImageTab() {
     try {
       const res = await fetch("/image", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "makers-conversation-id": convIdRef.current,
+        },
         body: JSON.stringify({ action: "generate", prompt: prompt.trim(), size }),
       });
       const data = await res.json();
@@ -213,6 +217,7 @@ function VideoTab() {
   const [resultUrl, setResultUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const pollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const convIdRef = useRef<string>(crypto.randomUUID());
 
   const clearPoll = () => {
     if (pollTimer.current) {
@@ -229,7 +234,10 @@ function VideoTab() {
     try {
       const res = await fetch("/video", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "makers-conversation-id": convIdRef.current,
+        },
         body: JSON.stringify({ action: "status", taskId: id }),
       });
       const data = await res.json();
@@ -269,7 +277,10 @@ function VideoTab() {
     try {
       const res = await fetch("/video", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "makers-conversation-id": convIdRef.current,
+        },
         body: JSON.stringify({
           action: "create",
           prompt: prompt.trim(),
