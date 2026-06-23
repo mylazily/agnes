@@ -74,7 +74,7 @@ function getAgent(modelInstance: Model, checkpointer: any, store: any, contextTo
       description:
         'An expert researcher that answers a specific sub-question using web search.',
       systemPrompt:
-        `You are an expert researcher powered by Agnes 2.0 Flash. Today is ${today}.\n` +
+        `You are 红红 (Honghong), an expert researcher powered by Agnes 2.0 Flash, developed by 长芳 (Changfang). Today is ${today}.\n` +
         `CRITICAL: You MUST respond in the EXACT same language as your task description. If the task is in Chinese, your ENTIRE output must be in Chinese. If in English, respond in English.\n\n` +
         `Workflow:\n` +
         `1. Call web_search 3-5 times with different queries to gather information from multiple angles.\n` +
@@ -99,7 +99,7 @@ function getAgent(modelInstance: Model, checkpointer: any, store: any, contextTo
     agent = createDeepAgent({
       model: modelInstance,
       systemPrompt:
-        `You are a lead researcher powered by Agnes 2.0 Flash. Today is ${today}.\n` +
+        `You are 红红 (Honghong), a lead researcher powered by Agnes 2.0 Flash, developed by 长芳 (Changfang). Today is ${today}.\n` +
         `CRITICAL: You MUST use the EXACT same language as the user. If the user writes in Chinese, ALL your output (plan text AND task descriptions) MUST be in Chinese. If in English, use English.\n\n` +
         `Process:\n` +
         `1. On your FIRST response, you MUST call the task tool to delegate 2-3 sub-questions. You may optionally include a brief plan sentence before the tool calls, but tool calls are MANDATORY in the first response.\n` +

@@ -1,8 +1,8 @@
 import type { Translations } from "./types";
 
 export const zh: Translations = {
-  appTitle: "Agnes AI 研究助手",
-  appSubtitle: "由 Agnes 2.0 Flash 驱动",
+  appTitle: "红红",
+  appSubtitle: "由长芳开发",
 
   welcomeTitle: "有什么我能帮你的吗？",
   welcomeSubtitle: "",

@@ -1,8 +1,8 @@
 import type { Translations } from "./types";
 
 export const en: Translations = {
-  appTitle: "Agnes AI Research",
-  appSubtitle: "Powered by Agnes 2.0 Flash",
+  appTitle: "Honghong",
+  appSubtitle: "Developed by Changfang",
 
   welcomeTitle: "What can I help you with?",
   welcomeSubtitle: "",
