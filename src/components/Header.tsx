@@ -28,28 +28,40 @@ export function Header({ phase, hasMessages, onNewChat }: HeaderProps) {
   };
 
   const phaseColor: Record<ResearchPhase, string> = {
-    idle: "text-slate-400",
-    planning: "text-teal-600",
-    researching: "text-teal-600",
-    synthesizing: "text-amber-600",
-    complete: "text-emerald-600",
+    idle: "text-[rgba(0,0,0,0.3)]",
+    planning: "text-[#0065fd]",
+    researching: "text-[#0065fd]",
+    synthesizing: "text-[#ff9500]",
+    complete: "text-[#34c759]",
   };
 
   const phaseDotColor: Record<ResearchPhase, string> = {
-    idle: "bg-slate-300",
-    planning: "bg-teal-500",
-    researching: "bg-teal-500",
-    synthesizing: "bg-amber-500",
-    complete: "bg-emerald-500",
+    idle: "bg-[rgba(0,0,0,0.15)]",
+    planning: "bg-[#0065fd]",
+    researching: "bg-[#0065fd]",
+    synthesizing: "bg-[#ff9500]",
+    complete: "bg-[#34c759]",
   };
 
   return (
-    <header className="flex items-center gap-3 border-b border-[#e2e8f0] bg-white/85 backdrop-blur-md px-6 py-3.5">
+    <header
+      className="flex items-center gap-3 border-b px-4"
+      style={{
+        height: 56,
+        borderColor: "rgba(0,0,0,0.07)",
+        background: "rgba(255,255,255,0.9)",
+        backdropFilter: "blur(12px)",
+      }}
+    >
       {/* Logo + Title */}
       <div className="flex items-center gap-2.5">
-        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-teal-50">
+        <div
+          className="flex h-7 w-7 items-center justify-center rounded-lg"
+          style={{ background: "#ebf2ff" }}
+        >
           <svg
-            className="h-4 w-4 text-teal-600"
+            className="h-4 w-4"
+            style={{ color: "#0065fd" }}
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -62,15 +74,20 @@ export function Header({ phase, hasMessages, onNewChat }: HeaderProps) {
             />
           </svg>
         </div>
-        <h1 className="text-[15px] font-semibold tracking-tight text-slate-800">
+        <h1
+          className="text-[15px] font-semibold tracking-tight"
+          style={{ color: "#000" }}
+        >
           {t.appTitle}
         </h1>
       </div>
 
-      {/* Divider: brand | navigation (only when nav items exist) */}
-      {(phase !== "idle" || hasMessages) && <span className="h-4 w-px bg-slate-300" />}
+      {/* Divider */}
+      {(phase !== "idle" || hasMessages) && (
+        <span className="h-4 w-px" style={{ background: "rgba(0,0,0,0.07)" }} />
+      )}
 
-      {/* Phase indicator + Back — fixed width to prevent layout shift */}
+      {/* Phase indicator + Back */}
       <div className="flex items-center gap-3 min-w-[130px]">
         {phase !== "idle" && (
           <div className="flex items-center gap-1.5">
@@ -89,7 +106,10 @@ export function Header({ phase, hasMessages, onNewChat }: HeaderProps) {
         {hasMessages && (
           <button
             onClick={onNewChat}
-            className="cursor-pointer flex items-center gap-1 text-xs font-medium text-slate-500 transition-colors hover:text-slate-900"
+            className="cursor-pointer flex items-center gap-1 text-xs font-medium transition-colors"
+            style={{ color: "rgba(0,0,0,0.5)" }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = "#000")}
+            onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(0,0,0,0.5)")}
           >
             <svg
               className="h-3.5 w-3.5"
@@ -111,12 +131,15 @@ export function Header({ phase, hasMessages, onNewChat }: HeaderProps) {
 
       <div className="flex-1" />
 
-      {/* Right actions — unified text link style */}
+      {/* Right actions */}
       <a
         href="https://github.com/TencentEdgeOne/deepagents-research-nodejs"
         target="_blank"
         rel="noopener noreferrer"
-        className="flex items-center gap-1.5 text-xs font-medium text-slate-500 transition-colors hover:text-slate-900"
+        className="flex items-center gap-1.5 text-xs font-medium transition-colors"
+        style={{ color: "rgba(0,0,0,0.5)" }}
+        onMouseEnter={(e) => (e.currentTarget.style.color = "#000")}
+        onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(0,0,0,0.5)")}
       >
         <svg className="h-3.5 w-3.5" viewBox="0 0 16 16" fill="currentColor">
           <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
@@ -127,7 +150,10 @@ export function Header({ phase, hasMessages, onNewChat }: HeaderProps) {
         href={getDeployUrl()}
         target="_blank"
         rel="noopener noreferrer"
-        className="flex items-center gap-1.5 text-xs font-medium text-slate-500 transition-colors hover:text-slate-900"
+        className="flex items-center gap-1.5 text-xs font-medium transition-colors"
+        style={{ color: "rgba(0,0,0,0.5)" }}
+        onMouseEnter={(e) => (e.currentTarget.style.color = "#000")}
+        onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(0,0,0,0.5)")}
       >
         <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z" />
@@ -139,12 +165,15 @@ export function Header({ phase, hasMessages, onNewChat }: HeaderProps) {
       </a>
 
       {/* Divider */}
-      <span className="h-4 w-px bg-slate-300" />
+      <span className="h-4 w-px" style={{ background: "rgba(0,0,0,0.07)" }} />
 
       {/* Language toggle */}
       <button
         onClick={toggleLocale}
-        className="cursor-pointer flex items-center gap-1 text-xs font-medium text-slate-500 transition-colors hover:text-slate-900"
+        className="cursor-pointer flex items-center gap-1 text-xs font-medium transition-colors"
+        style={{ color: "rgba(0,0,0,0.5)" }}
+        onMouseEnter={(e) => (e.currentTarget.style.color = "#000")}
+        onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(0,0,0,0.5)")}
       >
         <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
           <circle cx="12" cy="12" r="10" />

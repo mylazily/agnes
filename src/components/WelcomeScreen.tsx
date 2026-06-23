@@ -55,10 +55,14 @@ export function WelcomeScreen({ onSelect, onLoadConversation, storedConversation
   const { t, locale } = useLanguage();
 
   return (
-    <div className="flex flex-1 flex-col items-center overflow-y-auto px-6 pt-[12vh] pb-8">
-      <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-teal-50">
+    <div className="flex flex-1 flex-col items-center overflow-y-auto px-4 pt-[12vh] pb-8" style={{ maxWidth: 480, margin: "0 auto" }}>
+      <div
+        className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl"
+        style={{ background: "#ebf2ff" }}
+      >
         <svg
-          className="h-7 w-7 text-teal-600"
+          className="h-7 w-7"
+          style={{ color: "#0065fd" }}
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -72,25 +76,43 @@ export function WelcomeScreen({ onSelect, onLoadConversation, storedConversation
         </svg>
       </div>
 
-      <h2 className="mb-1.5 text-xl font-semibold tracking-tight text-slate-800">
+      <h2 className="mb-1.5 text-xl font-semibold tracking-tight" style={{ color: "#000" }}>
         {t.welcomeTitle}
       </h2>
-      <p className="mb-8 max-w-md text-center text-sm leading-relaxed text-slate-500">
+      <p className="mb-8 max-w-md text-center text-sm leading-relaxed" style={{ color: "rgba(0,0,0,0.5)" }}>
         {t.welcomeSubtitle}
       </p>
 
-      <div className="grid w-full max-w-2xl grid-cols-1 gap-3 sm:grid-cols-2">
+      <div className="grid w-full grid-cols-1 gap-3" style={{ maxWidth: 480 }}>
         {t.presetQuestions.map((q, i) => (
           <button
             key={i}
             onClick={() => onSelect(q)}
-            className="group cursor-pointer rounded-xl border border-[#e5e5e3] bg-white p-5 text-left transition-all duration-200 hover:border-teal-200 hover:shadow-[0_2px_8px_rgba(13,148,136,0.10)]"
-            style={{ animation: `slideUp 0.3s ease ${i * 0.06}s both` }}
+            className="group cursor-pointer rounded-xl border p-5 text-left transition-all duration-200"
+            style={{
+              borderColor: "rgba(0,0,0,0.07)",
+              background: "#ffffff",
+              animation: `slideUp 0.3s ease ${i * 0.06}s both`,
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = "rgba(0,101,253,0.2)";
+              e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,101,253,0.08)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = "rgba(0,0,0,0.07)";
+              e.currentTarget.style.boxShadow = "none";
+            }}
           >
-            <span className="mb-2 block text-teal-400 transition-colors duration-200 group-hover:text-teal-600">
+            <span
+              className="mb-2 block transition-colors duration-200"
+              style={{ color: "#0065fd" }}
+            >
               {cardIcons[i % 4]}
             </span>
-            <span className="text-[13px] leading-relaxed text-slate-600 transition-colors duration-200 group-hover:text-slate-800">
+            <span
+              className="text-[13px] leading-relaxed transition-colors duration-200"
+              style={{ color: "rgba(0,0,0,0.8)" }}
+            >
               {q}
             </span>
           </button>
@@ -99,8 +121,8 @@ export function WelcomeScreen({ onSelect, onLoadConversation, storedConversation
 
       {/* Recent conversations */}
       {storedConversations && storedConversations.length > 0 && onLoadConversation && (
-        <div className="mt-8 w-full max-w-2xl" style={{ animation: "fadeIn 0.3s ease 0.2s both" }}>
-          <h3 className="mb-3 flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-slate-400">
+        <div className="mt-8 w-full" style={{ maxWidth: 480, animation: "fadeIn 0.3s ease 0.2s both" }}>
+          <h3 className="mb-3 flex items-center gap-2 text-xs font-medium uppercase tracking-wider" style={{ color: "rgba(0,0,0,0.3)" }}>
             <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
@@ -110,16 +132,31 @@ export function WelcomeScreen({ onSelect, onLoadConversation, storedConversation
             {storedConversations.map((conv) => (
               <div
                 key={conv.id}
-                className="group flex items-center gap-3 rounded-lg border border-slate-100 bg-white px-4 py-3 transition-all duration-200 hover:border-teal-200 hover:shadow-[0_1px_4px_rgba(13,148,136,0.08)]"
+                className="group flex items-center gap-3 rounded-lg border px-4 py-3 transition-all duration-200"
+                style={{
+                  borderColor: "rgba(0,0,0,0.05)",
+                  background: "#ffffff",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = "rgba(0,101,253,0.15)";
+                  e.currentTarget.style.boxShadow = "0 1px 4px rgba(0,101,253,0.06)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = "rgba(0,0,0,0.05)";
+                  e.currentTarget.style.boxShadow = "none";
+                }}
               >
                 <button
                   onClick={() => onLoadConversation(conv.id)}
                   className="flex-1 cursor-pointer text-left"
                 >
-                  <span className="block text-[13px] leading-relaxed text-slate-700 group-hover:text-slate-900">
+                  <span
+                    className="block text-[13px] leading-relaxed transition-colors duration-200 group-hover:text-black"
+                    style={{ color: "rgba(0,0,0,0.8)" }}
+                  >
                     {conv.title}
                   </span>
-                  <span className="text-[11px] text-slate-400">
+                  <span className="text-[11px]" style={{ color: "rgba(0,0,0,0.3)" }}>
                     {formatRelativeTime(conv.timestamp, locale)}
                   </span>
                 </button>
@@ -129,7 +166,16 @@ export function WelcomeScreen({ onSelect, onLoadConversation, storedConversation
                       e.stopPropagation();
                       onRemoveConversation(conv.id);
                     }}
-                    className="cursor-pointer rounded p-1 text-slate-300 opacity-0 transition-all duration-200 hover:bg-slate-100 hover:text-slate-500 group-hover:opacity-100"
+                    className="cursor-pointer rounded p-1 opacity-0 transition-all duration-200 group-hover:opacity-100"
+                    style={{ color: "rgba(0,0,0,0.15)" }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = "rgba(0,0,0,0.05)";
+                      e.currentTarget.style.color = "rgba(0,0,0,0.4)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = "transparent";
+                      e.currentTarget.style.color = "rgba(0,0,0,0.15)";
+                    }}
                     title={t.deleteConversation}
                   >
                     <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
