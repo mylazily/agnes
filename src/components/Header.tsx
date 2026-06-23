@@ -14,9 +14,11 @@ interface HeaderProps {
   phase: ResearchPhase;
   hasMessages: boolean;
   onNewChat: () => void;
+  currentMode?: "chat" | "image" | "video";
+  onChangeMode?: (mode: "chat" | "image" | "video") => void;
 }
 
-export function Header({ phase, hasMessages, onNewChat }: HeaderProps) {
+export function Header({ phase, hasMessages, onNewChat, currentMode = "chat", onChangeMode }: HeaderProps) {
   const { t, locale, toggleLocale } = useLanguage();
 
   const phaseLabel: Record<ResearchPhase, string> = {
@@ -128,6 +130,44 @@ export function Header({ phase, hasMessages, onNewChat }: HeaderProps) {
           </button>
         )}
       </div>
+
+      {/* Mode tabs */}
+      {onChangeMode && (
+        <div className="flex items-center gap-1">
+          {(
+            [
+              { key: "chat" as const, label: t.tabChat },
+              { key: "image" as const, label: t.tabImage },
+              { key: "video" as const, label: t.tabVideo },
+            ] as const
+          ).map((item) => {
+            const active = currentMode === item.key;
+            return (
+              <button
+                key={item.key}
+                onClick={() => onChangeMode(item.key)}
+                className="cursor-pointer relative px-4 py-1.5 text-xs font-medium transition-colors"
+                style={{
+                  color: active ? "#0065fd" : "rgba(0,0,0,0.5)",
+                }}
+              >
+                {item.label}
+                {active && (
+                  <span
+                    className="absolute bottom-0 left-1/2 -translate-x-1/2 block"
+                    style={{
+                      width: 16,
+                      height: 2,
+                      background: "#0065fd",
+                      borderRadius: 1,
+                    }}
+                  />
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       <div className="flex-1" />
 

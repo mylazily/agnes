@@ -42,4 +42,19 @@ export const zh: Translations = {
 
   loadHistoryEmpty: "该对话暂无历史记录",
   loadHistoryFailed: "加载对话历史失败",
+
+  tabChat: "对话",
+  tabImage: "图像",
+  tabVideo: "视频",
+  imagePlaceholder: "描述你想要的图片...",
+  videoPlaceholder: "描述你想要的视频...",
+  generateButton: "生成",
+  generating: "生成中...",
+  sizeLabel: "尺寸",
+  durationLabel: "时长",
+  imageResultTitle: "生成的图片",
+  videoResultTitle: "生成的视频",
+  downloadButton: "下载",
+  videoPolling: "视频生成中，请稍候...",
+  videoReady: "视频已生成！",
 };

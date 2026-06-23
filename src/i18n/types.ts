@@ -37,4 +37,19 @@ export interface Translations {
 
   loadHistoryEmpty: string;
   loadHistoryFailed: string;
+
+  tabChat: string;
+  tabImage: string;
+  tabVideo: string;
+  imagePlaceholder: string;
+  videoPlaceholder: string;
+  generateButton: string;
+  generating: string;
+  sizeLabel: string;
+  durationLabel: string;
+  imageResultTitle: string;
+  videoResultTitle: string;
+  downloadButton: string;
+  videoPolling: string;
+  videoReady: string;
 }

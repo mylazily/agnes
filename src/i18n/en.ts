@@ -43,4 +43,19 @@ export const en: Translations = {
 
   loadHistoryEmpty: "This conversation has no history",
   loadHistoryFailed: "Failed to load conversation history",
+
+  tabChat: "Chat",
+  tabImage: "Image",
+  tabVideo: "Video",
+  imagePlaceholder: "Describe the image you want...",
+  videoPlaceholder: "Describe the video you want...",
+  generateButton: "Generate",
+  generating: "Generating...",
+  sizeLabel: "Size",
+  durationLabel: "Duration",
+  imageResultTitle: "Generated Image",
+  videoResultTitle: "Generated Video",
+  downloadButton: "Download",
+  videoPolling: "Generating video, please wait...",
+  videoReady: "Video is ready!",
 };
