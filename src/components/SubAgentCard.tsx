@@ -27,7 +27,6 @@ function AnimatedTitle({ text }: { text: string }) {
     if (text !== prevTextRef.current) {
       prevTextRef.current = text;
       setAnimating(true);
-      // Wait for exit animation, then swap text and enter
       const timer = setTimeout(() => {
         setDisplayText(text);
         setAnimating(false);
@@ -38,9 +37,16 @@ function AnimatedTitle({ text }: { text: string }) {
 
   return (
     <span
-      className="flex-1 truncate text-[13px] font-medium inline-block transition-all duration-300 ease-out"
       style={{
-        color: "rgba(0,0,0,0.8)",
+        flex: 1,
+        overflow: "hidden",
+        textOverflow: "ellipsis",
+        whiteSpace: "nowrap",
+        fontSize: 13,
+        fontWeight: 500,
+        display: "inline-block",
+        transition: "all 0.3s ease-out",
+        color: "var(--dbx-text-secondary)",
         transform: animating ? "translateY(-8px)" : "translateY(0)",
         opacity: animating ? 0 : 1,
       }}
@@ -86,7 +92,6 @@ export function SubAgentCard({
     }
   }, [task.content, task.status, isOpen]);
 
-  // Resolve description: replace special markers with i18n text
   function resolveDescription(desc: string): string {
     if (desc === "__PENDING__") return t.taskPending;
     if (desc === "__SUMMARIZING__") return t.taskSummarizing;
@@ -95,32 +100,51 @@ export function SubAgentCard({
   }
 
   const borderColor = {
-    pending: "rgba(0,0,0,0.07)",
-    running: "rgba(0,0,0,0.07)",
-    complete: "rgba(0,101,253,0.15)",
+    pending: "var(--dbx-line-7)",
+    running: "var(--dbx-line-7)",
+    complete: "var(--dbx-line-highlight)",
     error: "rgba(255,59,48,0.2)",
-    cancelled: "rgba(0,0,0,0.05)",
+    cancelled: "var(--dbx-line-divider-5)",
   }[task.status];
 
   return (
     <div
-      className="rounded-xl overflow-hidden transition-all duration-200"
       style={{
+        borderRadius: "var(--radius-xl)",
+        overflow: "hidden",
+        transition: "all 0.2s ease",
         border: `1px solid ${borderColor}`,
-        background: "#ffffff",
+        background: "var(--dbx-bg-surface)",
       }}
     >
       {/* Card Header */}
       <button
         onClick={onToggle}
-        className="cursor-pointer flex w-full items-center gap-2 px-3 py-2.5 text-left transition-colors duration-150"
-        style={{ background: "transparent" }}
-        onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(0,0,0,0.02)")}
+        style={{
+          display: "flex",
+          width: "100%",
+          alignItems: "center",
+          gap: 8,
+          padding: "10px 12px",
+          textAlign: "left",
+          background: "transparent",
+          border: "none",
+          cursor: "pointer",
+          transition: "background 0.15s ease",
+          color: "inherit",
+        }}
+        onMouseEnter={(e) => (e.currentTarget.style.background = "var(--dbx-fill-trans-10)")}
         onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
       >
         <svg
-          className={`h-3 w-3 shrink-0 transition-transform duration-200 ${isOpen ? "rotate-90" : ""}`}
-          style={{ color: "rgba(0,0,0,0.2)" }}
+          width="12"
+          height="12"
+          style={{
+            color: "var(--dbx-text-quaternary)",
+            flexShrink: 0,
+            transition: "transform 0.2s ease",
+            transform: isOpen ? "rotate(90deg)" : "rotate(0deg)",
+          }}
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -130,32 +154,52 @@ export function SubAgentCard({
         </svg>
 
         <span
-          className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-[10px] font-semibold"
-          style={{ background: "#f4f4f4", color: "rgba(0,0,0,0.4)" }}
+          style={{
+            display: "flex",
+            width: 20,
+            height: 20,
+            flexShrink: 0,
+            alignItems: "center",
+            justifyContent: "center",
+            borderRadius: "var(--radius-sm)",
+            background: "var(--dbx-bg-elevated)",
+            color: "var(--dbx-text-quaternary)",
+            fontSize: 10,
+            fontWeight: 600,
+          }}
         >
           {index}
         </span>
 
         {/* Phase-based icon */}
         {task.description === "__PENDING__" ? (
-          <span className="inline-block h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-[1.5px]" style={{ borderColor: "rgba(0,0,0,0.08)", borderTopColor: "#0065fd" }} />
+          <span
+            style={{
+              display: "inline-block",
+              width: 14,
+              height: 14,
+              flexShrink: 0,
+              borderRadius: "50%",
+              border: "1.5px solid var(--dbx-line-7)",
+              borderTopColor: "var(--dbx-fill-primary)",
+              animation: "spin 1s linear infinite",
+            }}
+          />
         ) : task.description === "__SUMMARIZING__" ? (
-          <svg className="h-3.5 w-3.5 shrink-0" style={{ color: "#0065fd" }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+          <svg width="14" height="14" style={{ color: "var(--dbx-fill-primary)", flexShrink: 0 }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
           </svg>
         ) : task.status === "complete" ? (
-          <svg className="h-3.5 w-3.5 shrink-0" style={{ color: "#0065fd" }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <svg width="14" height="14" style={{ color: "var(--dbx-fill-primary)", flexShrink: 0 }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
           </svg>
         ) : (
-          <svg className="h-3.5 w-3.5 shrink-0" style={{ color: "rgba(0,0,0,0.3)" }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+          <svg width="14" height="14" style={{ color: "var(--dbx-text-quaternary)", flexShrink: 0 }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
           </svg>
         )}
 
-        <AnimatedTitle
-          text={resolveDescription(task.description)}
-        />
+        <AnimatedTitle text={resolveDescription(task.description)} />
 
         <DurationDisplay startedAt={task.startedAt} duration={task.duration} />
         <StatusBadge status={task.status} />
@@ -163,28 +207,60 @@ export function SubAgentCard({
 
       {/* Collapsible content */}
       {isOpen && (
-        <div style={{ borderTop: "1px solid rgba(0,0,0,0.05)" }}>
-          {/* Tool calls — one bordered chip per row */}
+        <div style={{ borderTop: "1px solid var(--dbx-line-divider-5)" }}>
+          {/* Tool calls */}
           {task.toolCalls.length > 0 && (
-            <ul className="flex flex-col gap-1.5 px-3 py-2 max-h-[88px] overflow-y-auto overscroll-contain" style={{ borderBottom: "1px solid rgba(0,0,0,0.05)" }}>
+            <ul
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 6,
+                padding: "8px 12px",
+                maxHeight: 88,
+                overflowY: "auto",
+                overscrollBehavior: "contain",
+                borderBottom: "1px solid var(--dbx-line-divider-5)",
+                margin: 0,
+                listStyle: "none",
+              }}
+            >
               {task.toolCalls.map((tc) => (
                 <li
                   key={tc.id}
-                  className="flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-xs transition-colors"
-                  style={{ borderColor: "rgba(0,0,0,0.05)", background: "#ffffff" }}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(0,0,0,0.02)")}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = "#ffffff")}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    borderRadius: "var(--radius-lg)",
+                    border: "1px solid var(--dbx-line-divider-5)",
+                    padding: "6px 10px",
+                    fontSize: 12,
+                    background: "var(--dbx-bg-surface)",
+                    transition: "background 0.15s ease",
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = "var(--dbx-fill-trans-10)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = "var(--dbx-bg-surface)")}
                 >
                   {/* Status icon */}
-                  <span className="flex h-4 w-4 shrink-0 items-center justify-center">
+                  <span style={{ display: "flex", width: 16, height: 16, flexShrink: 0, alignItems: "center", justifyContent: "center" }}>
                     {tc.status === "pending" ? (
-                      <span className="inline-block h-3 w-3 animate-spin rounded-full border-[1.5px]" style={{ borderColor: "rgba(0,0,0,0.08)", borderTopColor: "#0065fd" }} />
+                      <span
+                        style={{
+                          display: "inline-block",
+                          width: 12,
+                          height: 12,
+                          borderRadius: "50%",
+                          border: "1.5px solid var(--dbx-line-7)",
+                          borderTopColor: "var(--dbx-fill-primary)",
+                          animation: "spin 1s linear infinite",
+                        }}
+                      />
                     ) : tc.status === "completed" ? (
-                      <svg className="h-3.5 w-3.5" style={{ color: "#0065fd" }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <svg width="14" height="14" style={{ color: "var(--dbx-fill-primary)" }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                       </svg>
                     ) : (
-                      <svg className="h-3.5 w-3.5" style={{ color: "#ff3b30" }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <svg width="14" height="14" style={{ color: "var(--dbx-function-danger)" }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                       </svg>
                     )}
@@ -192,23 +268,37 @@ export function SubAgentCard({
 
                   {/* Tool name pill */}
                   <span
-                    className="shrink-0 rounded-md px-1.5 py-0.5 font-mono text-[11px] font-medium"
-                    style={{ background: "#f4f4f4", color: "rgba(0,0,0,0.6)" }}
+                    style={{
+                      flexShrink: 0,
+                      borderRadius: "var(--radius-sm)",
+                      padding: "2px 6px",
+                      fontFamily: "var(--font-mono)",
+                      fontSize: 11,
+                      fontWeight: 500,
+                      background: "var(--dbx-bg-elevated)",
+                      color: "var(--dbx-text-tertiary)",
+                    }}
                   >
                     {tc.name}
                   </span>
 
-                  {/* Args summary fills remaining space */}
+                  {/* Args summary */}
                   {tc.argSummary ? (
                     <span
-                      className="min-w-0 flex-1 truncate"
-                      style={{ color: "rgba(0,0,0,0.3)" }}
+                      style={{
+                        minWidth: 0,
+                        flex: 1,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                        color: "var(--dbx-text-quaternary)",
+                      }}
                       title={tc.argSummary}
                     >
                       {tc.argSummary}
                     </span>
                   ) : (
-                    <span className="min-w-0 flex-1" />
+                    <span style={{ minWidth: 0, flex: 1 }} />
                   )}
                 </li>
               ))}
@@ -219,29 +309,46 @@ export function SubAgentCard({
           <div
             ref={contentRef}
             onScroll={checkIsAtBottom}
-            className="max-h-64 overflow-y-auto overscroll-contain px-4 py-3 text-[13px] leading-relaxed"
-            style={{ color: "rgba(0,0,0,0.7)" }}
+            style={{
+              maxHeight: 256,
+              overflowY: "auto",
+              overscrollBehavior: "contain",
+              padding: "12px 16px",
+              fontSize: 13,
+              lineHeight: 1.6,
+              color: "var(--dbx-text-secondary)",
+            }}
           >
             {task.content ? (
               <>
                 <Markdown content={task.content} />
                 {task.status === "running" && (
                   <span
-                    className="ml-0.5 inline-block h-4 w-[2px] animate-pulse align-middle"
-                    style={{ background: "#0065fd" }}
+                    style={{
+                      display: "inline-block",
+                      width: 2,
+                      height: 16,
+                      marginLeft: 2,
+                      verticalAlign: "middle",
+                      background: "var(--dbx-fill-primary)",
+                      animation: "pulse 1.5s infinite",
+                    }}
                   />
                 )}
               </>
             ) : (
-              <div className="flex items-center gap-2 py-2" style={{ color: "rgba(0,0,0,0.2)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 0", color: "var(--dbx-text-quaternary)" }}>
                 {(task.status === "running" || task.status === "pending") ? (
-                  <span className="flex gap-1">
+                  <span style={{ display: "flex", gap: 4 }}>
                     {[0, 1, 2].map((i) => (
                       <span
                         key={i}
-                        className="inline-block h-1.5 w-1.5 rounded-full"
                         style={{
-                          background: "#0065fd",
+                          display: "inline-block",
+                          width: 6,
+                          height: 6,
+                          borderRadius: "50%",
+                          background: "var(--dbx-fill-primary)",
                           animation: "bounce 1.4s infinite ease-in-out both",
                           animationDelay: `${i * 0.16}s`,
                         }}
@@ -249,9 +356,9 @@ export function SubAgentCard({
                     ))}
                   </span>
                 ) : task.status === "cancelled" ? (
-                  <span className="text-xs" style={{ color: "rgba(0,0,0,0.3)" }}>{t.taskCancelled}</span>
+                  <span style={{ fontSize: 12, color: "var(--dbx-text-quaternary)" }}>{t.taskCancelled}</span>
                 ) : (
-                  <span className="text-xs">{t.noContentYet}</span>
+                  <span style={{ fontSize: 12 }}>{t.noContentYet}</span>
                 )}
               </div>
             )}

@@ -16,7 +16,7 @@ export function DurationDisplay({
       return;
     }
 
-    // No duration and no valid startedAt — nothing to display (restored history)
+    // No duration and no valid startedAt -- nothing to display (restored history)
     if (!startedAt) {
       if (ref.current) ref.current.textContent = '';
       return;
@@ -34,7 +34,14 @@ export function DurationDisplay({
   }, [startedAt, duration]);
 
   return (
-    <span ref={ref} className="tabular-nums text-[11px] text-slate-400">
+    <span
+      ref={ref}
+      style={{
+        fontVariantNumeric: "tabular-nums",
+        fontSize: 11,
+        color: "var(--dbx-text-quaternary)",
+      }}
+    >
       0.0s
     </span>
   );

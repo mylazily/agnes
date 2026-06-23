@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { ChatPage } from "./components/ChatPage";
 import { MultimodalPage } from "./components/MultimodalPage";
-import type { MultimodalTab } from "./components/MultimodalPage";
+import { useLanguage } from "./hooks/useLanguage";
 
 type Route = "chat" | "image" | "video";
 
@@ -14,6 +14,8 @@ function getRouteFromPath(): Route {
 
 export default function App() {
   const [route, setRoute] = useState<Route>(getRouteFromPath);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { t, locale, toggleLocale } = useLanguage();
 
   useEffect(() => {
     const onPop = () => setRoute(getRouteFromPath());
@@ -28,60 +30,98 @@ export default function App() {
     }
   }, [route]);
 
-  if (route === "chat") {
-    return <ChatPage />;
-  }
+  // Close sidebar on route change (mobile)
+  useEffect(() => {
+    setSidebarOpen(false);
+  }, [route]);
 
-  const defaultTab: MultimodalTab = route === "video" ? "video" : "image";
+  const handleRouteChange = (r: Route) => {
+    setRoute(r);
+  };
+
   return (
-    <div className="flex h-screen flex-col">
-      {/* Shared tab navigation */}
-      <nav
-        className="flex items-center justify-center gap-1 px-4 shrink-0"
-        style={{
-          height: 52,
-          background: "rgba(255,255,255,0.9)",
-          backdropFilter: "blur(12px)",
-          borderBottom: "1px solid rgba(0,0,0,0.07)",
-        }}
-      >
-        {(
-          [
-            { key: "chat" as Route, label: "对话" },
-            { key: "image" as Route, label: "图像" },
-            { key: "video" as Route, label: "视频" },
-          ] as const
-        ).map((item) => {
-          const active = route === item.key;
-          return (
-            <button
-              key={item.key}
-              onClick={() => setRoute(item.key)}
-              className="cursor-pointer relative px-5 py-3 text-sm font-medium transition-colors"
-              style={{
-                color: active ? "#0065fd" : "rgba(0,0,0,0.5)",
-              }}
-            >
-              {item.label}
-              {active && (
-                <span
-                  className="absolute bottom-0 left-1/2 -translate-x-1/2 block"
-                  style={{
-                    width: 20,
-                    height: 2,
-                    background: "#0065fd",
-                    borderRadius: 1,
-                  }}
-                />
-              )}
-            </button>
-          );
-        })}
-      </nav>
+    <div style={{ display: "flex", height: "100vh", width: "100vw", overflow: "hidden" }}>
+      {/* Sidebar overlay for mobile */}
+      {sidebarOpen && (
+        <div
+          className="sidebar-overlay"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
 
-      <div className="flex-1 overflow-hidden">
-        <MultimodalPage defaultTab={defaultTab} />
-      </div>
+      {/* Sidebar */}
+      <aside className={`sidebar ${sidebarOpen ? "" : "collapsed"}`}>
+        <div className="sidebar-header">
+          <button
+            className="sidebar-new-chat-btn"
+            onClick={() => {
+              handleRouteChange("chat");
+            }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+            {t.newChat}
+          </button>
+        </div>
+
+        <div className="sidebar-history">
+          <div className="sidebar-section-label">{t.chatHistory}</div>
+          <div style={{ padding: "8px 12px", color: "var(--dbx-text-quaternary)", fontSize: 12 }}>
+            {t.noHistory}
+          </div>
+        </div>
+
+        {/* Sidebar footer with language toggle */}
+        <div style={{ padding: "12px 16px", borderTop: "1px solid var(--dbx-line-7)" }}>
+          <button
+            onClick={toggleLocale}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "8px 12px",
+              borderRadius: "var(--radius-lg)",
+              border: "none",
+              background: "transparent",
+              color: "var(--dbx-text-tertiary)",
+              fontSize: 12,
+              cursor: "pointer",
+              width: "100%",
+              transition: "background var(--transition-fast)",
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = "var(--dbx-fill-trans-10)")}
+            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10" />
+              <path d="M2 12h20" />
+              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+            </svg>
+            {locale === "en" ? "中文" : "English"}
+          </button>
+        </div>
+      </aside>
+
+      {/* Main content */}
+      <main style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, background: "var(--dbx-bg-body)" }}>
+        {route === "chat" ? (
+          <ChatPage
+            currentMode={route}
+            onChangeMode={handleRouteChange}
+            onToggleSidebar={() => setSidebarOpen((v) => !v)}
+            sidebarOpen={sidebarOpen}
+          />
+        ) : (
+          <MultimodalPage
+            defaultTab={route === "video" ? "video" : "image"}
+            currentMode={route}
+            onChangeMode={handleRouteChange}
+            onToggleSidebar={() => setSidebarOpen((v) => !v)}
+            sidebarOpen={sidebarOpen}
+          />
+        )}
+      </main>
     </div>
   );
 }

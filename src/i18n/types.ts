@@ -52,4 +52,14 @@ export interface Translations {
   downloadButton: string;
   videoPolling: string;
   videoReady: string;
+
+  // New keys for doubao-style UI
+  newChat: string;
+  chatHistory: string;
+  today: string;
+  yesterday: string;
+  earlier: string;
+  noHistory: string;
+  sendMessage: string;
+  attachFile: string;
 }

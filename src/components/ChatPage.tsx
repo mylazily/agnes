@@ -4,11 +4,17 @@ import { Header } from "./Header";
 import { WelcomeScreen } from "./WelcomeScreen";
 import { MessageFlow } from "./MessageFlow";
 import { ChatInput } from "./ChatInput";
-
 import { useLanguage } from "../hooks/useLanguage";
 
-/** Main chat page — centered container layout. */
-export function ChatPage() {
+interface ChatPageProps {
+  currentMode: "chat" | "image" | "video";
+  onChangeMode: (mode: "chat" | "image" | "video") => void;
+  onToggleSidebar: () => void;
+  sidebarOpen: boolean;
+}
+
+/** Main chat page -- doubao-style layout. */
+export function ChatPage({ currentMode, onChangeMode, onToggleSidebar, sidebarOpen }: ChatPageProps) {
   const { t } = useLanguage();
   const {
     messages,
@@ -51,26 +57,50 @@ export function ChatPage() {
   };
 
   return (
-    <div className="flex h-screen flex-col bg-[#f9fafb]">
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "var(--dbx-bg-body)" }}>
       <Header
         phase={phase}
         hasMessages={hasMessages}
         onNewChat={resetChat}
+        currentMode={currentMode}
+        onChangeMode={onChangeMode}
+        onToggleSidebar={onToggleSidebar}
+        sidebarOpen={sidebarOpen}
       />
 
-      {/* Floating error toast — auto-dismiss 3s */}
+      {/* Floating error toast */}
       {loadErrorText && (
-        <div className="absolute top-16 inset-x-0 flex justify-center z-50 animate-fade-in-up">
-          <div className="flex items-center gap-2.5 rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 shadow-lg">
-            <svg className="h-4 w-4 shrink-0 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <div style={{ position: "absolute", top: 64, left: 0, right: 0, display: "flex", justifyContent: "center", zIndex: 50 }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              borderRadius: "var(--radius-lg)",
+              border: "1px solid rgba(255,59,48,0.15)",
+              background: "rgba(255,59,48,0.06)",
+              padding: "10px 16px",
+              boxShadow: "var(--shadow-md)",
+              animation: "fade-in-up 0.3s ease",
+            }}
+          >
+            <svg width="16" height="16" style={{ color: "var(--dbx-function-danger)", flexShrink: 0 }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
-            <span className="text-sm text-red-700">{loadErrorText}</span>
+            <span style={{ fontSize: 13, color: "var(--dbx-function-danger)" }}>{loadErrorText}</span>
             <button
               onClick={dismissLoadError}
-              className="cursor-pointer ml-1 rounded p-0.5 text-red-400 hover:text-red-600 transition-colors"
+              style={{
+                cursor: "pointer",
+                marginLeft: 4,
+                borderRadius: "var(--radius-xs)",
+                padding: 2,
+                background: "transparent",
+                border: "none",
+                color: "rgba(255,59,48,0.4)",
+              }}
             >
-              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
@@ -78,13 +108,13 @@ export function ChatPage() {
         </div>
       )}
 
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
         {isLoadingHistory ? (
-          <div className="flex flex-1 items-center justify-center">
-            <div className="flex items-center gap-2.5 text-sm text-slate-400">
-              <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+          <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: "var(--dbx-text-tertiary)" }}>
+              <svg width="16" height="16" style={{ animation: "spin 1s linear infinite" }} fill="none" viewBox="0 0 24 24">
+                <circle style={{ opacity: 0.25 }} cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
+                <path style={{ opacity: 0.75 }} fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
               </svg>
               {t.loadingHistory}
             </div>

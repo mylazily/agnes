@@ -4,8 +4,8 @@ export const zh: Translations = {
   appTitle: "Agnes AI 研究助手",
   appSubtitle: "由 Agnes 2.0 Flash 驱动",
 
-  welcomeTitle: "你想研究什么？",
-  welcomeSubtitle: "提出一个问题，Agnes AI 将为你搜索、分析并汇总答案。",
+  welcomeTitle: "有什么我能帮你的吗？",
+  welcomeSubtitle: "",
   presetQuestions: [
     "最近科技圈有什么新闻？",
     "世界上最受欢迎的编程语言有哪些？",
@@ -13,10 +13,10 @@ export const zh: Translations = {
     "PostgreSQL、MySQL 和 MongoDB 怎么选？",
   ],
 
-  inputPlaceholder: "输入你想研究的问题…",
+  inputPlaceholder: "发消息...",
   sendButton: "发送",
   stopButton: "停止",
-  newChatButton: "返回首页",
+  newChatButton: "新对话",
 
   phaseIdle: "就绪",
   phasePlanning: "分析问题中",
@@ -34,7 +34,7 @@ export const zh: Translations = {
   researchStopped: "研究已停止",
 
   you: "你",
-  coordinator: "首席研究员",
+  coordinator: "AI 助手",
 
   recentConversations: "近期会话",
   loadingHistory: "加载会话中...",
@@ -57,4 +57,13 @@ export const zh: Translations = {
   downloadButton: "下载",
   videoPolling: "视频生成中，请稍候...",
   videoReady: "视频已生成！",
+
+  newChat: "新对话",
+  chatHistory: "对话历史",
+  today: "今天",
+  yesterday: "昨天",
+  earlier: "更早",
+  noHistory: "暂无对话",
+  sendMessage: "发消息...",
+  attachFile: "添加附件",
 };

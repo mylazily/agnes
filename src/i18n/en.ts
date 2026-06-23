@@ -4,9 +4,8 @@ export const en: Translations = {
   appTitle: "Agnes AI Research",
   appSubtitle: "Powered by Agnes 2.0 Flash",
 
-  welcomeTitle: "What would you like to research?",
-  welcomeSubtitle:
-    "Ask a question and Agnes AI will search, analyze, and summarize the answer for you.",
+  welcomeTitle: "What can I help you with?",
+  welcomeSubtitle: "",
   presetQuestions: [
     "What's the latest news in the tech world?",
     "What are the most popular programming languages?",
@@ -14,10 +13,10 @@ export const en: Translations = {
     "When to use PostgreSQL vs MySQL vs MongoDB?",
   ],
 
-  inputPlaceholder: "Enter your research question…",
+  inputPlaceholder: "Send a message...",
   sendButton: "Send",
   stopButton: "Stop",
-  newChatButton: "Home",
+  newChatButton: "New Chat",
 
   phaseIdle: "Ready",
   phasePlanning: "Analyzing",
@@ -35,7 +34,7 @@ export const en: Translations = {
   researchStopped: "Research stopped",
 
   you: "You",
-  coordinator: "Lead Researcher",
+  coordinator: "AI Assistant",
 
   recentConversations: "Recent Conversations",
   loadingHistory: "Loading conversation...",
@@ -58,4 +57,13 @@ export const en: Translations = {
   downloadButton: "Download",
   videoPolling: "Generating video, please wait...",
   videoReady: "Video is ready!",
+
+  newChat: "New Chat",
+  chatHistory: "Chat History",
+  today: "Today",
+  yesterday: "Yesterday",
+  earlier: "Earlier",
+  noHistory: "No conversations yet",
+  sendMessage: "Send a message...",
+  attachFile: "Attach file",
 };

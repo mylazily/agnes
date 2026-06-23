@@ -1,10 +1,15 @@
 import { useState, useRef, useEffect } from "react";
 import { useLanguage } from "../hooks/useLanguage";
+import { Header } from "./Header";
 
 export type MultimodalTab = "image" | "video";
 
 interface MultimodalPageProps {
   defaultTab: MultimodalTab;
+  currentMode?: "chat" | "image" | "video";
+  onChangeMode?: (mode: "chat" | "image" | "video") => void;
+  onToggleSidebar?: () => void;
+  sidebarOpen?: boolean;
 }
 
 /* ------------------------------------------------------------------ */
@@ -42,14 +47,17 @@ function ImageTab() {
   };
 
   return (
-    <div className="flex flex-col gap-5 max-w-2xl mx-auto w-full">
+    <div style={{ display: "flex", flexDirection: "column", gap: 20, maxWidth: 680, margin: "0 auto", width: "100%" }}>
       {/* Input card */}
       <div
-        className="flex flex-col gap-4 p-5"
         style={{
-          background: "#fff",
-          border: "1px solid rgba(0,0,0,0.07)",
-          borderRadius: "16px",
+          display: "flex",
+          flexDirection: "column",
+          gap: 16,
+          padding: 20,
+          background: "var(--dbx-bg-surface)",
+          border: "1px solid var(--dbx-line-7)",
+          borderRadius: "var(--radius-2xl)",
         }}
       >
         <textarea
@@ -57,30 +65,40 @@ function ImageTab() {
           onChange={(e) => setPrompt(e.target.value)}
           placeholder={t.imagePlaceholder}
           rows={4}
-          className="w-full resize-none outline-none text-sm"
           style={{
-            background: "#f4f4f4",
-            borderRadius: "12px",
+            width: "100%",
+            resize: "none",
+            outline: "none",
+            fontSize: 14,
+            fontFamily: "var(--font-sans)",
+            background: "var(--dbx-bg-elevated)",
+            borderRadius: "var(--radius-xl)",
             padding: "12px 14px",
-            color: "#000",
+            color: "var(--dbx-text-primary)",
             border: "none",
+            lineHeight: 1.5,
           }}
         />
 
-        <div className="flex items-center gap-3">
-          <span className="text-xs font-medium" style={{ color: "rgba(0,0,0,0.5)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <span style={{ fontSize: 12, fontWeight: 500, color: "var(--dbx-text-tertiary)" }}>
             {t.sizeLabel}
           </span>
-          <div className="flex gap-2">
+          <div style={{ display: "flex", gap: 8 }}>
             {(["1024x1024", "1024x768", "768x1024"] as const).map((s) => (
               <button
                 key={s}
                 onClick={() => setSize(s)}
-                className="cursor-pointer text-xs font-medium px-3 py-1.5 transition-colors"
                 style={{
-                  borderRadius: "8px",
-                  background: size === s ? "#0065fd" : "#f4f4f4",
-                  color: size === s ? "#fff" : "rgba(0,0,0,0.6)",
+                  cursor: "pointer",
+                  fontSize: 12,
+                  fontWeight: 500,
+                  padding: "6px 12px",
+                  borderRadius: "var(--radius-md)",
+                  background: size === s ? "var(--dbx-fill-primary)" : "var(--dbx-bg-elevated)",
+                  color: size === s ? "var(--dbx-bg-surface)" : "var(--dbx-text-tertiary)",
+                  border: "none",
+                  transition: "all 0.15s ease",
                 }}
               >
                 {s}
@@ -92,11 +110,17 @@ function ImageTab() {
         <button
           onClick={handleGenerate}
           disabled={loading || !prompt.trim()}
-          className="cursor-pointer w-full py-2.5 text-sm font-semibold transition-colors disabled:opacity-50"
           style={{
-            background: "#0065fd",
-            color: "#fff",
-            borderRadius: "12px",
+            cursor: loading || !prompt.trim() ? "default" : "pointer",
+            width: "100%",
+            padding: "10px 0",
+            fontSize: 14,
+            fontWeight: 600,
+            borderRadius: "var(--radius-xl)",
+            background: loading || !prompt.trim() ? "var(--dbx-neutral-200)" : "var(--dbx-text-primary)",
+            color: loading || !prompt.trim() ? "var(--dbx-text-quaternary)" : "var(--dbx-bg-surface)",
+            border: "none",
+            transition: "all 0.15s ease",
           }}
         >
           {loading ? t.generating : t.generateButton}
@@ -106,9 +130,19 @@ function ImageTab() {
       {/* Error */}
       {error && (
         <div
-          className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            borderRadius: "var(--radius-lg)",
+            border: "1px solid rgba(255,59,48,0.15)",
+            background: "rgba(255,59,48,0.06)",
+            padding: "10px 16px",
+            fontSize: 13,
+            color: "var(--dbx-function-danger)",
+          }}
         >
-          <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <svg width="16" height="16" style={{ flexShrink: 0 }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
           </svg>
           {error}
@@ -118,33 +152,44 @@ function ImageTab() {
       {/* Result */}
       {resultUrl && (
         <div
-          className="flex flex-col gap-3 p-5"
           style={{
-            background: "#fff",
-            border: "1px solid rgba(0,0,0,0.07)",
-            borderRadius: "16px",
+            display: "flex",
+            flexDirection: "column",
+            gap: 12,
+            padding: 20,
+            background: "var(--dbx-bg-surface)",
+            border: "1px solid var(--dbx-line-7)",
+            borderRadius: "var(--radius-2xl)",
           }}
         >
-          <h3 className="text-sm font-semibold" style={{ color: "#000" }}>
+          <h3 style={{ fontSize: 14, fontWeight: 600, color: "var(--dbx-text-primary)" }}>
             {t.imageResultTitle}
           </h3>
           <img
             src={resultUrl}
             alt="generated"
-            className="w-full rounded-xl"
-            style={{ maxHeight: "480px", objectFit: "contain" }}
+            style={{ width: "100%", borderRadius: "var(--radius-xl)", maxHeight: 480, objectFit: "contain" }}
           />
           <a
             href={resultUrl}
             download
-            className="inline-flex items-center justify-center gap-1.5 cursor-pointer py-2 text-xs font-semibold transition-colors"
             style={{
-              background: "#0065fd",
-              color: "#fff",
-              borderRadius: "12px",
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 6,
+              cursor: "pointer",
+              padding: "8px 0",
+              fontSize: 12,
+              fontWeight: 600,
+              borderRadius: "var(--radius-xl)",
+              background: "var(--dbx-text-primary)",
+              color: "var(--dbx-bg-surface)",
+              textDecoration: "none",
+              transition: "opacity 0.15s ease",
             }}
           >
-            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
             </svg>
             {t.downloadButton}
@@ -251,14 +296,17 @@ function VideoTab() {
   };
 
   return (
-    <div className="flex flex-col gap-5 max-w-2xl mx-auto w-full">
+    <div style={{ display: "flex", flexDirection: "column", gap: 20, maxWidth: 680, margin: "0 auto", width: "100%" }}>
       {/* Input card */}
       <div
-        className="flex flex-col gap-4 p-5"
         style={{
-          background: "#fff",
-          border: "1px solid rgba(0,0,0,0.07)",
-          borderRadius: "16px",
+          display: "flex",
+          flexDirection: "column",
+          gap: 16,
+          padding: 20,
+          background: "var(--dbx-bg-surface)",
+          border: "1px solid var(--dbx-line-7)",
+          borderRadius: "var(--radius-2xl)",
         }}
       >
         <textarea
@@ -266,30 +314,40 @@ function VideoTab() {
           onChange={(e) => setPrompt(e.target.value)}
           placeholder={t.videoPlaceholder}
           rows={4}
-          className="w-full resize-none outline-none text-sm"
           style={{
-            background: "#f4f4f4",
-            borderRadius: "12px",
+            width: "100%",
+            resize: "none",
+            outline: "none",
+            fontSize: 14,
+            fontFamily: "var(--font-sans)",
+            background: "var(--dbx-bg-elevated)",
+            borderRadius: "var(--radius-xl)",
             padding: "12px 14px",
-            color: "#000",
+            color: "var(--dbx-text-primary)",
             border: "none",
+            lineHeight: 1.5,
           }}
         />
 
-        <div className="flex items-center gap-3">
-          <span className="text-xs font-medium" style={{ color: "rgba(0,0,0,0.5)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <span style={{ fontSize: 12, fontWeight: 500, color: "var(--dbx-text-tertiary)" }}>
             {t.durationLabel}
           </span>
-          <div className="flex gap-2">
+          <div style={{ display: "flex", gap: 8 }}>
             {([5, 10] as const).map((d) => (
               <button
                 key={d}
                 onClick={() => setDuration(d)}
-                className="cursor-pointer text-xs font-medium px-3 py-1.5 transition-colors"
                 style={{
-                  borderRadius: "8px",
-                  background: duration === d ? "#0065fd" : "#f4f4f4",
-                  color: duration === d ? "#fff" : "rgba(0,0,0,0.6)",
+                  cursor: "pointer",
+                  fontSize: 12,
+                  fontWeight: 500,
+                  padding: "6px 12px",
+                  borderRadius: "var(--radius-md)",
+                  background: duration === d ? "var(--dbx-fill-primary)" : "var(--dbx-bg-elevated)",
+                  color: duration === d ? "var(--dbx-bg-surface)" : "var(--dbx-text-tertiary)",
+                  border: "none",
+                  transition: "all 0.15s ease",
                 }}
               >
                 {d}s
@@ -301,11 +359,17 @@ function VideoTab() {
         <button
           onClick={handleGenerate}
           disabled={loading || !prompt.trim()}
-          className="cursor-pointer w-full py-2.5 text-sm font-semibold transition-colors disabled:opacity-50"
           style={{
-            background: "#0065fd",
-            color: "#fff",
-            borderRadius: "12px",
+            cursor: loading || !prompt.trim() ? "default" : "pointer",
+            width: "100%",
+            padding: "10px 0",
+            fontSize: 14,
+            fontWeight: 600,
+            borderRadius: "var(--radius-xl)",
+            background: loading || !prompt.trim() ? "var(--dbx-neutral-200)" : "var(--dbx-text-primary)",
+            color: loading || !prompt.trim() ? "var(--dbx-text-quaternary)" : "var(--dbx-bg-surface)",
+            border: "none",
+            transition: "all 0.15s ease",
           }}
         >
           {loading ? t.generating : t.generateButton}
@@ -314,8 +378,8 @@ function VideoTab() {
 
       {/* Error */}
       {error && (
-        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700">
-          <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, borderRadius: "var(--radius-lg)", border: "1px solid rgba(255,59,48,0.15)", background: "rgba(255,59,48,0.06)", padding: "10px 16px", fontSize: 13, color: "var(--dbx-function-danger)" }}>
+          <svg width="16" height="16" style={{ flexShrink: 0 }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
           </svg>
           {error}
@@ -325,22 +389,25 @@ function VideoTab() {
       {/* Polling / Ready */}
       {(status === "polling" || status === "ready") && (
         <div
-          className="flex flex-col gap-3 p-5"
           style={{
-            background: "#fff",
-            border: "1px solid rgba(0,0,0,0.07)",
-            borderRadius: "16px",
+            display: "flex",
+            flexDirection: "column",
+            gap: 12,
+            padding: 20,
+            background: "var(--dbx-bg-surface)",
+            border: "1px solid var(--dbx-line-7)",
+            borderRadius: "var(--radius-2xl)",
           }}
         >
-          <h3 className="text-sm font-semibold" style={{ color: "#000" }}>
+          <h3 style={{ fontSize: 14, fontWeight: 600, color: "var(--dbx-text-primary)" }}>
             {t.videoResultTitle}
           </h3>
 
           {status === "polling" && (
-            <div className="flex items-center gap-2.5 text-sm" style={{ color: "rgba(0,0,0,0.5)" }}>
-              <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: "var(--dbx-text-tertiary)" }}>
+              <svg width="16" height="16" style={{ animation: "spin 1s linear infinite" }} fill="none" viewBox="0 0 24 24">
+                <circle style={{ opacity: 0.25 }} cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
+                <path style={{ opacity: 0.75 }} fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
               </svg>
               {t.videoPolling}
             </div>
@@ -348,8 +415,8 @@ function VideoTab() {
 
           {status === "ready" && resultUrl && (
             <>
-              <div className="flex items-center gap-2 text-sm" style={{ color: "#34c759" }}>
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: "var(--dbx-function-success)" }}>
+                <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                 </svg>
                 {t.videoReady}
@@ -357,20 +424,28 @@ function VideoTab() {
               <video
                 src={resultUrl}
                 controls
-                className="w-full rounded-xl"
-                style={{ maxHeight: "480px" }}
+                style={{ width: "100%", borderRadius: "var(--radius-xl)", maxHeight: 480 }}
               />
               <a
                 href={resultUrl}
                 download
-                className="inline-flex items-center justify-center gap-1.5 cursor-pointer py-2 text-xs font-semibold transition-colors"
                 style={{
-                  background: "#0065fd",
-                  color: "#fff",
-                  borderRadius: "12px",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 6,
+                  cursor: "pointer",
+                  padding: "8px 0",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  borderRadius: "var(--radius-xl)",
+                  background: "var(--dbx-text-primary)",
+                  color: "var(--dbx-bg-surface)",
+                  textDecoration: "none",
+                  transition: "opacity 0.15s ease",
                 }}
               >
-                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                 </svg>
                 {t.downloadButton}
@@ -384,59 +459,26 @@ function VideoTab() {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Page shell with tabs                                                */
+/*  Page shell with header                                              */
 /* ------------------------------------------------------------------ */
-export function MultimodalPage({ defaultTab }: MultimodalPageProps) {
+export function MultimodalPage({ defaultTab, currentMode = "image", onChangeMode, onToggleSidebar, sidebarOpen }: MultimodalPageProps) {
   const { t } = useLanguage();
   const [tab, setTab] = useState<MultimodalTab>(defaultTab);
 
-  const tabs: { key: MultimodalTab; label: string }[] = [
-    { key: "image", label: t.tabImage },
-    { key: "video", label: t.tabVideo },
-  ];
-
   return (
-    <div className="flex h-screen flex-col" style={{ background: "#f9f9f9" }}>
-      {/* Tab bar */}
-      <div
-        className="flex items-center justify-center gap-1 px-4"
-        style={{
-          height: 52,
-          background: "rgba(255,255,255,0.9)",
-          backdropFilter: "blur(12px)",
-          borderBottom: "1px solid rgba(0,0,0,0.07)",
-        }}
-      >
-        {tabs.map((item) => {
-          const active = tab === item.key;
-          return (
-            <button
-              key={item.key}
-              onClick={() => setTab(item.key)}
-              className="cursor-pointer relative px-5 py-3 text-sm font-medium transition-colors"
-              style={{
-                color: active ? "#0065fd" : "rgba(0,0,0,0.5)",
-              }}
-            >
-              {item.label}
-              {active && (
-                <span
-                  className="absolute bottom-0 left-1/2 -translate-x-1/2 block"
-                  style={{
-                    width: 20,
-                    height: 2,
-                    background: "#0065fd",
-                    borderRadius: 1,
-                  }}
-                />
-              )}
-            </button>
-          );
-        })}
-      </div>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "var(--dbx-bg-body)" }}>
+      <Header
+        phase="idle"
+        hasMessages={false}
+        onNewChat={() => {}}
+        currentMode={currentMode}
+        onChangeMode={onChangeMode}
+        onToggleSidebar={onToggleSidebar}
+        sidebarOpen={sidebarOpen}
+      />
 
       {/* Content */}
-      <div className="flex-1 overflow-auto p-5">
+      <div style={{ flex: 1, overflow: "auto", padding: 20 }}>
         {tab === "image" ? <ImageTab /> : <VideoTab />}
       </div>
     </div>
